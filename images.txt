@@ -1,1 +1,2 @@
 nginx
+javpower/pdocr:v4.0.1
