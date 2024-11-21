@@ -1,2 +1,3 @@
 nginx
 javpower/pdocr:v4.0.1
+crpi-rbd6pa8l2fovrifp.cn-hangzhou.personal.cr.aliyuncs.com/nlp_stonedt/nlp_data:1.0.11
