@@ -3,3 +3,4 @@ crpi-rbd6pa8l2fovrifp.cn-hangzhou.personal.cr.aliyuncs.com/nlp_stonedt/nlp_data:
 duolabmeng666/paddlehub_ppocr:1.0
 stirlingtools/stirling-pdf:latest
 xujin/moss-web:latest
+nginx
