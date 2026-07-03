@@ -567,6 +567,104 @@ p {
   gap: 8px;
 }
 
+.condition-group {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #e0e8ee;
+  border-radius: 8px;
+  background: #fff;
+  padding: 12px;
+}
+
+.condition-label {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.condition-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.condition-controls.three {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.condition-controls label,
+.prefix-checks label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 0 10px;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.id-date-fields {
+  display: none;
+}
+
+.prefix-groups {
+  display: grid;
+  gap: 12px;
+}
+
+.prefix-group {
+  display: grid;
+  gap: 8px;
+}
+
+.prefix-group-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.prefix-group-title strong {
+  color: var(--brand);
+}
+
+.prefix-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.image-size-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.image-size-panel div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #e0e8ee;
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+}
+
+.image-size-panel span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.image-size-panel strong {
+  color: var(--ink);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
 .preview-panel {
   min-width: 0;
   display: grid;
@@ -985,7 +1083,9 @@ canvas {
 
   .inline-control,
   .two-columns,
-  .image-row {
+  .image-row,
+  .condition-controls.three,
+  .image-size-panel {
     grid-template-columns: 1fr;
   }
 

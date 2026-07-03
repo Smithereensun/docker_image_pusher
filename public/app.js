@@ -19,13 +19,49 @@ const areaCodes = [
   "610102", "620102", "630102", "640104", "650102",
 ];
 
-const phonePrefixes = [
-  "130", "131", "132", "133", "135", "136", "137", "138", "139",
-  "150", "151", "152", "155", "156", "157", "158", "159",
-  "170", "171", "172", "173", "175", "176", "177", "178",
-  "180", "181", "182", "183", "185", "186", "187", "188",
-  "190", "191", "193", "195", "196", "197", "198", "199",
+const idRegions = [
+  { name: "北京市", cities: [{ name: "北京市", counties: [["东城区", "110101"], ["西城区", "110102"], ["朝阳区", "110105"], ["海淀区", "110108"]] }] },
+  { name: "上海市", cities: [{ name: "上海市", counties: [["黄浦区", "310101"], ["徐汇区", "310104"], ["静安区", "310106"], ["浦东新区", "310115"]] }] },
+  { name: "天津市", cities: [{ name: "天津市", counties: [["和平区", "120101"], ["河东区", "120102"], ["南开区", "120104"], ["滨海新区", "120116"]] }] },
+  { name: "重庆市", cities: [{ name: "重庆市", counties: [["万州区", "500101"], ["渝中区", "500103"], ["江北区", "500105"], ["渝北区", "500112"]] }] },
+  { name: "河北省", cities: [{ name: "石家庄市", counties: [["长安区", "130102"], ["桥西区", "130104"], ["新华区", "130105"]] }, { name: "唐山市", counties: [["路南区", "130202"], ["路北区", "130203"]] }] },
+  { name: "山西省", cities: [{ name: "太原市", counties: [["小店区", "140105"], ["迎泽区", "140106"], ["杏花岭区", "140107"]] }] },
+  { name: "内蒙古自治区", cities: [{ name: "呼和浩特市", counties: [["新城区", "150102"], ["回民区", "150103"], ["玉泉区", "150104"]] }] },
+  { name: "辽宁省", cities: [{ name: "沈阳市", counties: [["和平区", "210102"], ["沈河区", "210103"], ["大东区", "210104"]] }] },
+  { name: "吉林省", cities: [{ name: "长春市", counties: [["南关区", "220102"], ["宽城区", "220103"], ["朝阳区", "220104"]] }] },
+  { name: "黑龙江省", cities: [{ name: "哈尔滨市", counties: [["道里区", "230102"], ["南岗区", "230103"], ["道外区", "230104"]] }] },
+  { name: "江苏省", cities: [{ name: "南京市", counties: [["玄武区", "320102"], ["秦淮区", "320104"], ["建邺区", "320105"]] }, { name: "苏州市", counties: [["姑苏区", "320508"], ["吴中区", "320506"]] }] },
+  { name: "浙江省", cities: [{ name: "杭州市", counties: [["上城区", "330102"], ["拱墅区", "330105"], ["西湖区", "330106"]] }, { name: "宁波市", counties: [["海曙区", "330203"], ["江北区", "330205"]] }] },
+  { name: "安徽省", cities: [{ name: "合肥市", counties: [["瑶海区", "340102"], ["庐阳区", "340103"], ["蜀山区", "340104"]] }] },
+  { name: "福建省", cities: [{ name: "福州市", counties: [["鼓楼区", "350102"], ["台江区", "350103"], ["仓山区", "350104"]] }, { name: "厦门市", counties: [["思明区", "350203"], ["湖里区", "350206"]] }] },
+  { name: "江西省", cities: [{ name: "南昌市", counties: [["东湖区", "360102"], ["西湖区", "360103"], ["青云谱区", "360104"]] }] },
+  { name: "山东省", cities: [{ name: "济南市", counties: [["历下区", "370102"], ["市中区", "370103"], ["槐荫区", "370104"]] }, { name: "青岛市", counties: [["市南区", "370202"], ["市北区", "370203"]] }] },
+  { name: "河南省", cities: [{ name: "郑州市", counties: [["中原区", "410102"], ["二七区", "410103"], ["金水区", "410105"]] }] },
+  { name: "湖北省", cities: [{ name: "武汉市", counties: [["江岸区", "420102"], ["江汉区", "420103"], ["硚口区", "420104"]] }] },
+  { name: "湖南省", cities: [{ name: "长沙市", counties: [["芙蓉区", "430102"], ["天心区", "430103"], ["岳麓区", "430104"]] }] },
+  { name: "广东省", cities: [{ name: "广州市", counties: [["荔湾区", "440103"], ["越秀区", "440104"], ["天河区", "440106"]] }, { name: "深圳市", counties: [["罗湖区", "440303"], ["福田区", "440304"], ["南山区", "440305"]] }] },
+  { name: "广西壮族自治区", cities: [{ name: "南宁市", counties: [["兴宁区", "450102"], ["青秀区", "450103"], ["江南区", "450105"]] }] },
+  { name: "海南省", cities: [{ name: "海口市", counties: [["秀英区", "460105"], ["龙华区", "460106"], ["美兰区", "460108"]] }] },
+  { name: "四川省", cities: [{ name: "成都市", counties: [["锦江区", "510104"], ["青羊区", "510105"], ["武侯区", "510107"]] }] },
+  { name: "贵州省", cities: [{ name: "贵阳市", counties: [["南明区", "520102"], ["云岩区", "520103"], ["花溪区", "520111"]] }] },
+  { name: "云南省", cities: [{ name: "昆明市", counties: [["五华区", "530102"], ["盘龙区", "530103"], ["官渡区", "530111"]] }] },
+  { name: "西藏自治区", cities: [{ name: "拉萨市", counties: [["城关区", "540102"], ["堆龙德庆区", "540103"]] }] },
+  { name: "陕西省", cities: [{ name: "西安市", counties: [["新城区", "610102"], ["碑林区", "610103"], ["莲湖区", "610104"]] }] },
+  { name: "甘肃省", cities: [{ name: "兰州市", counties: [["城关区", "620102"], ["七里河区", "620103"], ["西固区", "620104"]] }] },
+  { name: "青海省", cities: [{ name: "西宁市", counties: [["城东区", "630102"], ["城中区", "630103"], ["城西区", "630104"]] }] },
+  { name: "宁夏回族自治区", cities: [{ name: "银川市", counties: [["兴庆区", "640104"], ["西夏区", "640105"], ["金凤区", "640106"]] }] },
+  { name: "新疆维吾尔自治区", cities: [{ name: "乌鲁木齐市", counties: [["天山区", "650102"], ["沙依巴克区", "650103"], ["新市区", "650104"]] }] },
 ];
+
+const phonePrefixGroups = [
+  { carrier: "移动", prefixes: ["134", "135", "136", "137", "138", "139", "147", "150", "151", "152", "157", "158", "159", "165", "172", "178", "182", "183", "184", "187", "188", "198"] },
+  { carrier: "联通", prefixes: ["130", "131", "132", "145", "155", "156", "166", "171", "175", "176", "185", "186"] },
+  { carrier: "电信", prefixes: ["133", "149", "153", "173", "177", "180", "181", "189", "199"] },
+];
+
+const phonePrefixes = phonePrefixGroups.flatMap((group) => group.prefixes);
+const familyNames = "赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨朱秦尤许何吕施张孔曹严华金魏陶姜谢邹喻柏水窦章云苏潘葛范彭郎鲁韦昌马苗凤花方俞任袁柳鲍史唐费廉岑薛雷贺倪汤滕殷罗毕郝邬安常乐于时傅皮卞齐康伍余元卜顾孟平黄和穆萧尹姚邵汪祁毛禹狄米贝明臧计伏成戴谈宋庞熊纪舒项祝董梁杜阮蓝闵季贾路江童颜郭梅盛林钟徐邱骆高夏蔡田胡凌霍虞万柯管卢莫房裘解应宗丁宣邓杭洪包左石崔吉龚程邢裴陆荣翁荀惠甄曲封储靳段富巫焦巴牧山谷车侯全班仰秋仲伊宫宁仇栾甘厉祖武符刘景詹龙叶幸司郜黎薄印白怀蒲从索咸赖卓蔺屠蒙池乔阴胥苍双闻翟谭劳逄姬申扶冉宰雍桑桂牛寿通边燕浦尚农温庄晏柴瞿阎连茹习艾鱼容向古易慎戈廖庾居衡步都耿满弘匡国文寇广东殳利蔚越师巩厍聂晁勾敖融冷辛阚简饶曾沙养鞠丰巢关蒯相查荆红游竺权盖益桓公";
+const givenNameChars = "一凡子文明华伟刚勇毅俊峰强军平保东力成康星光天达安岩中茂进林有坚和彪博诚先敬震振壮会思群豪心邦承乐绍功松善厚庆磊民友裕河哲江超浩亮政谦亨奇固之轮翰朗伯宏言若鸣朋斌梁栋维启克伦翔旭鹏泽晨辰士以建家致树炎德行时泰盛雄琛钧冠策腾榕风航弘义兴良飞彬富顺信杰涛昌贵福生龙元全国胜学祥才发武新利清飞彤霞香月莺媛艳瑞凡佳嘉琼勤珍贞莉兰凤洁梅琳素云莲真环雪荣爱妹惠珠翠雅芝玉萍红娥玲芬芳燕彩春菊勤晶妍茜秋珊莎锦黛青倩婷姣婉娴瑾颖露瑶怡婵雁蓓纨仪荷丹蓉眉君琴蕊薇菁梦岚苑婕馨瑗琰韵融园艺咏卿聪澜纯毓悦昭冰爽琬茗羽希宁欣飘育滢馥筠柔竹霭凝晓欢霄枫芸菲寒伊亚宜可姬舒影荔枝思丽秀娟英慧巧美娜静淑惠珠莹雪琳晗涵诗琪梦洁";
 
 const state = {
   password: localStorage.getItem("docker-images-pusher-password") || "",
@@ -38,6 +74,7 @@ const state = {
   mergedImageUrl: "",
   processedImageUrl: "",
   resizeSource: null,
+  resizeOriginalBytes: 0,
   connectingMirror: false,
 };
 
@@ -254,16 +291,21 @@ function setupImageMergeTool() {
 }
 
 function setupGenerators() {
+  setupIdGeneratorControls();
+  setupPhoneGeneratorControls();
   $("#generateIdButton").addEventListener("click", () => {
     const count = readNumber("#idCount", 1, 200, 10);
-    const gender = $("#idGender").value;
-    const birthday = $("#idBirthday").value;
-    $("#idOutput").value = Array.from({ length: count }, () => createIdNumber(gender, birthday)).join("\n");
+    const options = readIdOptions();
+    const records = Array.from({ length: count }, () => createIdRecord(options));
+    $("#idOutput").value = options.nameMode === "random"
+      ? ["姓名\t性别\t出生地\t出生日期\t身份证号", ...records.map((item) => `${item.name}\t${item.genderLabel}\t${item.regionLabel}\t${formatBirthday(item.birthday)}\t${item.id}`)].join("\n")
+      : records.map((item) => item.id).join("\n");
   });
   $("#generatePhoneButton").addEventListener("click", () => {
-    const count = readNumber("#phoneCount", 1, 500, 20);
-    const group = $("#phonePrefix").value;
-    $("#phoneOutput").value = Array.from({ length: count }, () => createPhone(group)).join("\n");
+    const count = readNumber("#phoneCount", 1, 1000, 100);
+    const prefixes = selectedPhonePrefixes();
+    const region = $("#phoneRegion").value;
+    $("#phoneOutput").value = ["手机号\t运营商\t归属地省份", ...Array.from({ length: count }, () => createPhone(prefixes, region))].join("\n");
   });
   $("#generateStringButton").addEventListener("click", () => {
     const pool = buildPool([
@@ -294,6 +336,109 @@ function setupGenerators() {
   });
 }
 
+function setupIdGeneratorControls() {
+  const province = $("#idProvince");
+  const city = $("#idCity");
+  const county = $("#idCounty");
+  province.innerHTML = `<option value="">请选择省</option>${idRegions.map((item, index) => `<option value="${index}">${escapeHtml(item.name)}</option>`).join("")}`;
+  city.innerHTML = '<option value="">请选择市</option>';
+  county.innerHTML = '<option value="">请选择县/区</option>';
+  province.addEventListener("change", () => renderIdCities());
+  city.addEventListener("change", () => renderIdCounties());
+  $$('input[name="idDateMode"]').forEach((input) => input.addEventListener("change", updateIdDateFields));
+  updateIdDateFields();
+}
+
+function renderIdCities() {
+  const province = idRegions[Number($("#idProvince").value)];
+  $("#idCity").innerHTML = '<option value="">请选择市</option>';
+  $("#idCounty").innerHTML = '<option value="">请选择县/区</option>';
+  if (!province) return;
+  $("#idCity").innerHTML += province.cities.map((item, index) => `<option value="${index}">${escapeHtml(item.name)}</option>`).join("");
+}
+
+function renderIdCounties() {
+  const province = idRegions[Number($("#idProvince").value)];
+  const city = province?.cities[Number($("#idCity").value)];
+  $("#idCounty").innerHTML = '<option value="">请选择县/区</option>';
+  if (!city) return;
+  $("#idCounty").innerHTML += city.counties.map(([name, code], index) => `<option value="${index}" data-code="${code}">${escapeHtml(name)}</option>`).join("");
+}
+
+function setupPhoneGeneratorControls() {
+  const container = $("#phonePrefixGroups");
+  container.innerHTML = phonePrefixGroups
+    .map((group) => `
+      <div class="prefix-group" data-carrier="${escapeHtml(group.carrier)}">
+        <div class="prefix-group-title">
+          <strong>${escapeHtml(group.carrier)}</strong>
+          <button class="small-button secondary" type="button" data-prefix-all="${escapeHtml(group.carrier)}">全部</button>
+        </div>
+        <div class="prefix-checks">
+          ${group.prefixes.map((prefix) => `<label><input type="checkbox" value="${prefix}" data-phone-prefix /> ${prefix}</label>`).join("")}
+        </div>
+      </div>
+    `)
+    .join("");
+  container.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-prefix-all]");
+    if (!button) return;
+    const group = button.closest(".prefix-group");
+    const checks = [...group.querySelectorAll("[data-phone-prefix]")];
+    const shouldCheck = checks.some((input) => !input.checked);
+    checks.forEach((input) => {
+      input.checked = shouldCheck;
+    });
+  });
+  $("#phoneRegion").innerHTML = '<option value="">所有区域</option>' + idRegions.map((item) => `<option value="${escapeHtml(item.name)}">${escapeHtml(item.name)}</option>`).join("");
+}
+
+function updateIdDateFields() {
+  const mode = document.querySelector('input[name="idDateMode"]:checked')?.value || "random";
+  const fields = $(".id-date-fields");
+  fields.style.display = mode === "random" ? "none" : "grid";
+  $("#idBirthday").classList.toggle("is-hidden", mode !== "date");
+  $("#idAge").classList.toggle("is-hidden", mode !== "age");
+}
+
+function readIdOptions() {
+  return {
+    region: selectedIdRegion(),
+    dateMode: document.querySelector('input[name="idDateMode"]:checked')?.value || "random",
+    birthday: $("#idBirthday").value,
+    age: readNumber("#idAge", 0, 120, 30),
+    gender: document.querySelector('input[name="idGender"]:checked')?.value || "random",
+    nameMode: document.querySelector('input[name="idNameMode"]:checked')?.value || "none",
+  };
+}
+
+function selectedIdRegion() {
+  const province = idRegions[Number($("#idProvince").value)];
+  const city = province?.cities[Number($("#idCity").value)];
+  const county = city?.counties[Number($("#idCounty").value)];
+  if (province && city && county) {
+    return { code: county[1], label: `${province.name}${city.name}${county[0]}` };
+  }
+  if (province && city) {
+    const picked = pick(city.counties);
+    return { code: picked[1], label: `${province.name}${city.name}${picked[0]}` };
+  }
+  if (province) {
+    const pickedCity = pick(province.cities);
+    const pickedCounty = pick(pickedCity.counties);
+    return { code: pickedCounty[1], label: `${province.name}${pickedCity.name}${pickedCounty[0]}` };
+  }
+  const pickedProvince = pick(idRegions);
+  const pickedCity = pick(pickedProvince.cities);
+  const pickedCounty = pick(pickedCity.counties);
+  return { code: pickedCounty[1], label: `${pickedProvince.name}${pickedCity.name}${pickedCounty[0]}` };
+}
+
+function selectedPhonePrefixes() {
+  const checked = $$("[data-phone-prefix]:checked").map((input) => input.value);
+  return checked.length ? checked : phonePrefixes;
+}
+
 function setupBase64Tool() {
   const input = $("#base64ImageFile");
   const output = $("#base64Output");
@@ -319,9 +464,14 @@ function setupResizeTool() {
     if (!file) return;
     const item = await loadImageFile(file);
     state.resizeSource = item;
+    state.resizeOriginalBytes = file.size;
     $("#resizeWidth").value = item.width;
     $("#resizeHeight").value = item.height;
     $("#resizeScale").value = 100;
+    $("#resizeOriginalSize").textContent = `${item.width} x ${item.height}`;
+    $("#resizeOriginalBytes").textContent = formatBytes(file.size);
+    $("#resizeOutputSize").textContent = "-";
+    $("#resizeOutputBytes").textContent = "-";
     $("#resizeMeta").textContent = `原始尺寸：${item.width} x ${item.height}，大小：${formatBytes(file.size)}。`;
   });
   $("#resizeQuality").addEventListener("input", () => {
@@ -348,7 +498,12 @@ function setupResizeTool() {
     canvas.toBlob((blob) => {
       state.processedImageUrl = URL.createObjectURL(blob);
       $("#downloadProcessedImageButton").disabled = false;
+      $("#resizeOutputSize").textContent = `${width} x ${height}`;
+      $("#resizeOutputBytes").textContent = formatBytes(blob.size);
+      const delta = state.resizeOriginalBytes ? ((blob.size - state.resizeOriginalBytes) / state.resizeOriginalBytes) * 100 : 0;
+      const deltaText = delta >= 0 ? `增加 ${delta.toFixed(1)}%` : `减少 ${Math.abs(delta).toFixed(1)}%`;
       $("#resizeMeta").textContent = `处理后尺寸：${width} x ${height}，大小约：${formatBytes(blob.size)}。`;
+      $("#resizeMeta").textContent += ` 相比原图${deltaText}。`;
       showToast("图片处理完成");
     }, $("#resizeOutputType").value, Number($("#resizeQuality").value));
   });
@@ -436,9 +591,13 @@ async function encryptFolder() {
     const zipBytes = await zip.generateAsync({ type: "uint8array" });
     log.textContent = "正在加密...";
     const encrypted = await encryptBytes(zipBytes, password);
-    downloadBlob(new Blob([encrypted], { type: "application/octet-stream" }), "folder.toolbox.enc");
-    log.textContent = `完成，已加密 ${files.length} 个文件。`;
-    showToast("加密包已生成");
+    const packageZip = new JSZip();
+    packageZip.file("encrypted-data.bin", encrypted);
+    packageZip.file("README.txt", "这是由在线工具箱生成的加密文件夹 zip 包。\n请回到工具箱的“文件夹加密”功能，输入密码解密为 zip。\n");
+    const packageBlob = await packageZip.generateAsync({ type: "blob" });
+    downloadBlob(packageBlob, "folder-encrypted.zip");
+    log.textContent = `完成，已加密 ${files.length} 个文件，并生成 zip 格式加密包。`;
+    showToast("加密 zip 包已生成");
   } catch (error) {
     log.textContent = error.message;
     showToast(`加密失败：${error.message}`, true);
@@ -449,11 +608,12 @@ async function decryptFolder() {
   const file = $("#encryptedFileInput").files[0];
   const password = $("#decryptPassword").value;
   const log = $("#cryptoLog");
-  if (!file) return showToast("请选择 .enc 文件", true);
+  if (!file) return showToast("请选择加密 zip 包", true);
   if (!password) return showToast("请输入解密密码", true);
   try {
     log.textContent = "正在解密...";
-    const decrypted = await decryptBytes(new Uint8Array(await file.arrayBuffer()), password);
+    const encrypted = await readEncryptedPackage(file);
+    const decrypted = await decryptBytes(encrypted, password);
     downloadBlob(new Blob([decrypted], { type: "application/zip" }), "decrypted-folder.zip");
     log.textContent = "解密完成，已生成 zip。";
     showToast("解密完成");
@@ -461,6 +621,21 @@ async function decryptFolder() {
     log.textContent = "解密失败，请检查文件和密码。";
     showToast("解密失败，请检查密码是否正确", true);
   }
+}
+
+async function readEncryptedPackage(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (file.name.toLowerCase().endsWith(".enc")) {
+    return bytes;
+  }
+
+  const { default: JSZip } = await import(CDN.jszip);
+  const zip = await JSZip.loadAsync(bytes);
+  const payload = zip.file("encrypted-data.bin");
+  if (!payload) {
+    throw new Error("加密 zip 包中没有找到 encrypted-data.bin");
+  }
+  return new Uint8Array(await payload.async("uint8array"));
 }
 
 function setupMirrorTool() {
@@ -865,15 +1040,23 @@ async function api(path, options = {}) {
   return data;
 }
 
-function createIdNumber(gender, fixedBirthday) {
-  const area = pick(areaCodes);
-  const birthday = fixedBirthday ? fixedBirthday.replaceAll("-", "") : randomBirthday();
+function createIdRecord(options) {
+  const region = options.region || selectedIdRegion();
+  const gender = options.gender === "random" ? pick(["male", "female"]) : options.gender;
+  const birthday = birthdayByMode(options);
   let sequence = randomInt(1, 999);
   if (gender === "male" && sequence % 2 === 0) sequence += 1;
   if (gender === "female" && sequence % 2 === 1) sequence += 1;
   if (sequence > 999) sequence = gender === "female" ? 998 : 999;
-  const body = `${area}${birthday}${String(sequence).padStart(3, "0")}`;
-  return `${body}${idChecksum(body)}`;
+  const body = `${region.code}${birthday}${String(sequence).padStart(3, "0")}`;
+  return {
+    id: `${body}${idChecksum(body)}`,
+    name: options.nameMode === "random" ? randomChineseName() : "",
+    gender,
+    genderLabel: gender === "male" ? "男" : "女",
+    birthday,
+    regionLabel: region.label,
+  };
 }
 
 function idChecksum(body) {
@@ -883,19 +1066,51 @@ function idChecksum(body) {
   return codes[sum % 11];
 }
 
+function birthdayByMode(options) {
+  if (options.dateMode === "date" && options.birthday) {
+    return options.birthday.replaceAll("-", "");
+  }
+  if (options.dateMode === "age") {
+    return randomBirthdayByAge(options.age);
+  }
+  return randomBirthday();
+}
+
 function randomBirthday() {
   const start = new Date(1960, 0, 1).getTime();
   const end = new Date(2006, 11, 31).getTime();
   const date = new Date(randomInt(start, end));
+  return dateToCompact(date);
+}
+
+function randomBirthdayByAge(age) {
+  const today = new Date();
+  const start = new Date(today.getFullYear() - age - 1, today.getMonth(), today.getDate() + 1);
+  const end = new Date(today.getFullYear() - age, today.getMonth(), today.getDate());
+  return dateToCompact(new Date(randomInt(start.getTime(), end.getTime())));
+}
+
+function dateToCompact(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}${month}${day}`;
 }
 
-function createPhone(group) {
-  const candidates = group === "random" ? phonePrefixes : phonePrefixes.filter((prefix) => prefix.startsWith(group));
-  return `${pick(candidates)}${String(randomInt(0, 99999999)).padStart(8, "0")}`;
+function formatBirthday(value) {
+  return `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`;
+}
+
+function randomChineseName() {
+  const length = randomInt(1, 2);
+  return `${pick(familyNames)}${Array.from({ length }, () => pick(givenNameChars)).join("")}`;
+}
+
+function createPhone(prefixes, region) {
+  const prefix = pick(prefixes);
+  const carrier = phonePrefixGroups.find((group) => group.prefixes.includes(prefix))?.carrier || "未知";
+  const place = region || pick(idRegions).name;
+  return `${prefix}${String(randomInt(0, 99999999)).padStart(8, "0")}\t${carrier}\t${place}`;
 }
 
 function createPassword(sets, length) {
@@ -919,6 +1134,9 @@ function pick(value) {
 
 function randomInt(min, max) {
   const range = max - min + 1;
+  if (range > 0xffffffff) {
+    return min + Math.floor(Math.random() * range);
+  }
   const array = new Uint32Array(1);
   crypto.getRandomValues(array);
   return min + (array[0] % range);

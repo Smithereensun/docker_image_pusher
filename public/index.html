@@ -112,14 +112,41 @@
             <div class="control-card">
               <label for="idCount">生成数量</label>
               <input id="idCount" type="number" min="1" max="200" value="10" />
-              <label for="idGender">性别</label>
-              <select id="idGender">
-                <option value="random">随机</option>
-                <option value="male">男</option>
-                <option value="female">女</option>
-              </select>
-              <label for="idBirthday">指定生日（可选）</label>
-              <input id="idBirthday" type="date" />
+              <div class="condition-group">
+                <span class="condition-label">出生地</span>
+                <div class="condition-controls three">
+                  <select id="idProvince" aria-label="请选择省"></select>
+                  <select id="idCity" aria-label="请选择市"></select>
+                  <select id="idCounty" aria-label="请选择县区"></select>
+                </div>
+              </div>
+              <div class="condition-group">
+                <span class="condition-label">出生日期</span>
+                <div class="condition-controls">
+                  <label><input type="radio" name="idDateMode" value="date" /> 指定日期</label>
+                  <label><input type="radio" name="idDateMode" value="age" /> 指定年龄</label>
+                  <label><input type="radio" name="idDateMode" value="random" checked /> 随机</label>
+                </div>
+                <div class="two-columns id-date-fields">
+                  <input id="idBirthday" type="date" aria-label="指定日期" />
+                  <input id="idAge" type="number" min="0" max="120" value="30" aria-label="指定年龄" />
+                </div>
+              </div>
+              <div class="condition-group">
+                <span class="condition-label">性别</span>
+                <div class="condition-controls">
+                  <label><input type="radio" name="idGender" value="male" checked /> 男</label>
+                  <label><input type="radio" name="idGender" value="female" /> 女</label>
+                  <label><input type="radio" name="idGender" value="random" /> 随机</label>
+                </div>
+              </div>
+              <div class="condition-group">
+                <span class="condition-label">姓名</span>
+                <div class="condition-controls">
+                  <label><input type="radio" name="idNameMode" value="none" checked /> 无</label>
+                  <label><input type="radio" name="idNameMode" value="random" /> 随机</label>
+                </div>
+              </div>
             </div>
             <textarea id="idOutput" class="result-area" readonly></textarea>
           </div>
@@ -135,17 +162,21 @@
           </div>
           <div class="generator-grid">
             <div class="control-card">
-              <label for="phoneCount">生成数量</label>
-              <input id="phoneCount" type="number" min="1" max="500" value="20" />
-              <label for="phonePrefix">号段</label>
-              <select id="phonePrefix">
-                <option value="random">随机号段</option>
-                <option value="13">13x</option>
-                <option value="15">15x</option>
-                <option value="17">17x</option>
-                <option value="18">18x</option>
-                <option value="19">19x</option>
-              </select>
+              <div class="condition-group">
+                <span class="condition-label">手机号码段</span>
+                <p class="muted">不选择时默认使用全部号段。</p>
+                <div class="prefix-groups" id="phonePrefixGroups"></div>
+              </div>
+              <div class="two-columns">
+                <div>
+                  <label for="phoneRegion">归属地省份</label>
+                  <select id="phoneRegion"></select>
+                </div>
+                <div>
+                  <label for="phoneCount">生成数量</label>
+                  <input id="phoneCount" type="number" min="1" max="1000" value="100" />
+                </div>
+              </div>
             </div>
             <textarea id="phoneOutput" class="result-area" readonly></textarea>
           </div>
@@ -258,6 +289,24 @@
               </select>
               <label for="resizeQuality">质量：<span id="resizeQualityLabel">0.82</span></label>
               <input id="resizeQuality" type="range" min="0.1" max="1" step="0.01" value="0.82" />
+              <div class="image-size-panel">
+                <div>
+                  <span>原始尺寸</span>
+                  <strong id="resizeOriginalSize">-</strong>
+                </div>
+                <div>
+                  <span>原始大小</span>
+                  <strong id="resizeOriginalBytes">-</strong>
+                </div>
+                <div>
+                  <span>修改后尺寸</span>
+                  <strong id="resizeOutputSize">-</strong>
+                </div>
+                <div>
+                  <span>修改后大小</span>
+                  <strong id="resizeOutputBytes">-</strong>
+                </div>
+              </div>
               <p class="muted" id="resizeMeta">选择图片后会自动读取原始尺寸。</p>
             </div>
             <div class="preview-panel">
@@ -308,7 +357,7 @@
           <div class="panel-head">
             <div>
               <h2>文件夹加密 / 解密</h2>
-              <p>选择文件夹生成加密包；解密后下载 zip。网页不能直接覆盖本地文件夹。</p>
+              <p>选择文件夹生成加密 zip 包；解密后下载还原 zip。网页不能直接覆盖本地文件夹。</p>
             </div>
           </div>
           <div class="tool-grid">
@@ -318,18 +367,18 @@
               <input id="folderInput" type="file" webkitdirectory multiple />
               <label for="folderPassword">加密密码</label>
               <input id="folderPassword" type="password" autocomplete="new-password" />
-              <button type="button" id="encryptFolderButton">生成加密包</button>
+              <button type="button" id="encryptFolderButton">生成加密 zip 包</button>
             </div>
             <div class="control-card">
               <h3>解密加密包</h3>
-              <label for="encryptedFileInput">选择 .enc 文件</label>
-              <input id="encryptedFileInput" type="file" accept=".enc,application/octet-stream" />
+              <label for="encryptedFileInput">选择加密 zip 包</label>
+              <input id="encryptedFileInput" type="file" accept=".zip,.enc,application/zip,application/octet-stream" />
               <label for="decryptPassword">解密密码</label>
               <input id="decryptPassword" type="password" autocomplete="current-password" />
               <button type="button" id="decryptFolderButton">解密为 zip</button>
             </div>
           </div>
-          <div class="log-panel" id="cryptoLog">文件不会上传服务器，所有加密解密都在浏览器本地完成。</div>
+          <div class="log-panel" id="cryptoLog">文件不会上传服务器，所有加密解密都在浏览器本地完成；加密结果会下载为 zip 包。</div>
         </section>
 
         <section class="tool-panel" data-panel="mirror">
