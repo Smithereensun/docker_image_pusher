@@ -124,6 +124,7 @@ function init() {
   setupGenerators();
   setupSignatureTool();
   setupBase64Tool();
+  setupImageConvertTool();
   setupResizeTool();
   setupPdfTools();
   setupCryptoTool();
@@ -683,6 +684,143 @@ function setupBase64Tool() {
   });
   $("#copyBase64Button").addEventListener("click", () => copyText(output.value));
   $("#downloadBase64Button").addEventListener("click", () => downloadBlob(new Blob([output.value], { type: "text/plain;charset=utf-8" }), "image-base64.txt"));
+}
+
+function setupImageConvertTool() {
+  const input = $("#convertImageFiles");
+  input.addEventListener("change", () => {
+    renderFileList(input.files, $("#convertImageList"));
+    renderConvertPreview();
+  });
+  $("#convertOutputType").addEventListener("change", renderConvertPreview);
+  $("#convertQuality").addEventListener("input", () => {
+    $("#convertQualityLabel").textContent = $("#convertQuality").value;
+  });
+  $("#convertBackground").addEventListener("input", renderConvertPreview);
+  $("#convertImagesButton").addEventListener("click", convertImages);
+}
+
+async function renderConvertPreview() {
+  const file = $("#convertImageFiles").files[0];
+  const canvas = $("#convertPreviewCanvas");
+  const meta = $("#convertMeta");
+  if (!file) {
+    canvas.width = 0;
+    canvas.height = 0;
+    meta.textContent = "转换前可先选择图片和目标格式。";
+    return;
+  }
+
+  try {
+    const image = await loadImageFile(file);
+    const maxWidth = 760;
+    const scale = Math.min(1, maxWidth / image.width);
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if ($("#convertOutputType").value === "image/jpeg") {
+      ctx.fillStyle = $("#convertBackground").value;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    ctx.drawImage(image.image, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(image.url);
+    meta.textContent = `预览：${file.name} · ${image.width} x ${image.height} · 将转换为 ${formatImageType($("#convertOutputType").value)}。`;
+  } catch (error) {
+    meta.textContent = error.message;
+  }
+}
+
+async function convertImages() {
+  const files = [...$("#convertImageFiles").files];
+  if (!files.length) return showToast("请先选择图片", true);
+
+  try {
+    const outputType = $("#convertOutputType").value;
+    const quality = Number($("#convertQuality").value);
+    const converted = [];
+    for (const file of files) {
+      converted.push(await convertImageFile(file, outputType, quality));
+    }
+
+    if (converted.length === 1) {
+      downloadBlob(converted[0].blob, converted[0].name);
+    } else {
+      const { default: JSZip } = await import(CDN.jszip);
+      const zip = new JSZip();
+      converted.forEach((item) => zip.file(item.name, item.blob));
+      downloadBlob(await zip.generateAsync({ type: "blob" }), "converted-images.zip");
+    }
+    $("#convertMeta").textContent = `转换完成：${converted.length} 个文件，目标格式 ${formatImageType(outputType)}。`;
+    showToast("图片格式转换完成");
+  } catch (error) {
+    showToast(`转换失败：${error.message}`, true);
+  }
+}
+
+async function convertImageFile(file, outputType, quality) {
+  const extension = imageTypeExtension(outputType);
+  const baseName = file.name.replace(/\.[^.]+$/, "") || "converted-image";
+  const safeName = baseName.replace(/[\\/:*?"<>|]+/g, "-");
+
+  if (outputType === "image/svg+xml") {
+    if (file.type === "image/svg+xml") {
+      return {
+        name: `${safeName}.svg`,
+        blob: new Blob([await file.text()], { type: "image/svg+xml;charset=utf-8" }),
+      };
+    }
+    const source = await loadImageFile(file);
+    const dataUrl = await readAsDataUrl(file);
+    const svg = [
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${source.width}" height="${source.height}" viewBox="0 0 ${source.width} ${source.height}">`,
+      `<image href="${escapeHtml(dataUrl)}" width="${source.width}" height="${source.height}" />`,
+      "</svg>",
+    ].join("");
+    URL.revokeObjectURL(source.url);
+    return {
+      name: `${safeName}.svg`,
+      blob: new Blob([svg], { type: "image/svg+xml;charset=utf-8" }),
+    };
+  }
+
+  const source = await loadImageFile(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = source.width;
+  canvas.height = source.height;
+  const ctx = canvas.getContext("2d");
+  if (outputType === "image/jpeg") {
+    ctx.fillStyle = $("#convertBackground").value;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  ctx.drawImage(source.image, 0, 0);
+  URL.revokeObjectURL(source.url);
+  const blob = await canvasToBlob(canvas, outputType, quality);
+  if (!blob) throw new Error(`浏览器不支持导出 ${formatImageType(outputType)}`);
+  return {
+    name: `${safeName}.${extension}`,
+    blob,
+  };
+}
+
+function imageTypeExtension(type) {
+  const extensions = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+    "image/svg+xml": "svg",
+  };
+  return extensions[type] || "png";
+}
+
+function formatImageType(type) {
+  const labels = {
+    "image/png": "PNG",
+    "image/jpeg": "JPG",
+    "image/webp": "WEBP",
+    "image/svg+xml": "SVG",
+  };
+  return labels[type] || type;
 }
 
 function setupResizeTool() {

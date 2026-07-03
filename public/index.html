@@ -25,6 +25,7 @@
           <button class="nav-item" type="button" data-tool="password">随机密码</button>
           <button class="nav-item" type="button" data-tool="signature">手写签名</button>
           <button class="nav-item" type="button" data-tool="image-base64">图片转 Base64</button>
+          <button class="nav-item" type="button" data-tool="image-convert">图片格式转换</button>
           <button class="nav-item" type="button" data-tool="image-resize">图片压缩放大</button>
           <button class="nav-item" type="button" data-tool="pdf-images">PDF 转图片</button>
           <button class="nav-item" type="button" data-tool="pdf-merge">PDF 合并</button>
@@ -314,6 +315,38 @@
               <img id="base64Preview" class="image-preview" alt="图片预览" />
             </div>
             <textarea id="base64Output" class="result-area" readonly></textarea>
+          </div>
+        </section>
+
+        <section class="tool-panel" data-panel="image-convert">
+          <div class="panel-head">
+            <div>
+              <h2>图片文件格式转换</h2>
+              <p>支持 JPG、PNG、SVG、WEBP 互转，单张直接下载，多张自动打包 zip。</p>
+            </div>
+            <button type="button" id="convertImagesButton">转换并下载</button>
+          </div>
+          <div class="tool-grid">
+            <div class="control-card">
+              <label for="convertImageFiles">选择图片</label>
+              <input id="convertImageFiles" type="file" multiple accept="image/jpeg,image/png,image/svg+xml,image/webp" />
+              <label for="convertOutputType">目标格式</label>
+              <select id="convertOutputType">
+                <option value="image/png">PNG</option>
+                <option value="image/jpeg">JPG</option>
+                <option value="image/webp">WEBP</option>
+                <option value="image/svg+xml">SVG</option>
+              </select>
+              <label for="convertQuality">质量：<span id="convertQualityLabel">0.92</span></label>
+              <input id="convertQuality" type="range" min="0.1" max="1" step="0.01" value="0.92" />
+              <label for="convertBackground">JPG 背景色</label>
+              <input id="convertBackground" type="color" value="#ffffff" />
+              <div class="file-list" id="convertImageList">尚未选择图片</div>
+            </div>
+            <div class="preview-panel">
+              <canvas id="convertPreviewCanvas"></canvas>
+              <p id="convertMeta">转换前可先选择图片和目标格式。</p>
+            </div>
           </div>
         </section>
 
