@@ -819,6 +819,43 @@ canvas {
   font-weight: 720;
 }
 
+.file-queue-row {
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  border: 1px solid #e0e8ee;
+  border-bottom: 1px solid #e0e8ee;
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+  cursor: grab;
+}
+
+.file-queue-row + .file-queue-row {
+  margin-top: 8px;
+}
+
+.file-queue-row span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.file-queue-row.is-dragging,
+.merge-image-row.is-dragging {
+  opacity: 0.55;
+}
+
+.file-queue-row.is-drop-target,
+.merge-image-row.is-drop-target {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(13, 107, 115, 0.12);
+}
+
+.file-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .merge-image-row {
   display: grid;
   grid-template-columns: 34px 54px minmax(0, 1fr) auto;
@@ -829,15 +866,6 @@ canvas {
   background: #fff;
   padding: 8px;
   cursor: grab;
-}
-
-.merge-image-row.is-dragging {
-  opacity: 0.55;
-}
-
-.merge-image-row.is-drop-target {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px rgba(13, 107, 115, 0.12);
 }
 
 .merge-image-order {
@@ -1315,10 +1343,15 @@ canvas {
   .inline-control,
   .two-columns,
   .image-row,
+  .file-queue-row,
   .merge-image-row,
   .condition-controls.three,
   .image-size-panel {
     grid-template-columns: 1fr;
+  }
+
+  .file-row-actions {
+    justify-content: flex-start;
   }
 
   h1 {

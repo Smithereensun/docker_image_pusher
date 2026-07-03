@@ -73,6 +73,13 @@ const state = {
   nextImageRowId: 1,
   mergeImages: [],
   nextMergeImageId: 1,
+  fileQueues: {
+    convertImages: [],
+    imagesToPdf: [],
+    mergePdf: [],
+    folder: [],
+  },
+  nextFileQueueId: 1,
   mergedImageUrl: "",
   processedImageUrl: "",
   resizeSource: null,
@@ -160,6 +167,16 @@ function enhanceNativeControls() {
 function updateFileControlLabel(input) {
   const label = input.closest(".file-control")?.querySelector(".file-control-label");
   if (!label) return;
+
+  if (input.dataset.fileQueueName) {
+    const count = input.dataset.fileQueueName === "mergeImages"
+      ? state.mergeImages.length
+      : state.fileQueues[input.dataset.fileQueueName]?.length || 0;
+    if (count) {
+      label.textContent = `已添加 ${count} 个文件，可继续添加`;
+      return;
+    }
+  }
 
   const files = [...input.files];
   if (!files.length) {
@@ -255,6 +272,7 @@ function setupImageMergeTool() {
   const list = $("#mergeImageList");
   const canvas = $("#mergeCanvas");
   const meta = $("#mergeImageMeta");
+  input.dataset.fileQueueName = "mergeImages";
 
   input.addEventListener("change", () => {
     addMergeImages([...input.files]);
@@ -264,9 +282,14 @@ function setupImageMergeTool() {
     if (label && state.mergeImages.length) label.textContent = `已添加 ${state.mergeImages.length} 张图片，可继续添加`;
   });
   list.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-remove-merge-image]");
-    if (!button) return;
-    removeMergeImage(Number(button.dataset.removeMergeImage));
+    const removeButton = event.target.closest("[data-remove-merge-image]");
+    if (removeButton) {
+      removeMergeImage(Number(removeButton.dataset.removeMergeImage));
+      return;
+    }
+
+    const moveButton = event.target.closest("[data-move-merge-image]");
+    if (moveButton) moveMergeImage(Number(moveButton.dataset.moveMergeImage), moveButton.dataset.moveDirection);
   });
   list.addEventListener("dragstart", (event) => {
     const row = event.target.closest("[data-merge-image-id]");
@@ -360,6 +383,7 @@ function removeMergeImage(id) {
   state.mergeImages.splice(index, 1);
   renderMergeImageQueue();
   $("#mergeImageMeta").textContent = state.mergeImages.length ? `已添加 ${state.mergeImages.length} 张图片。` : "生成后在这里预览。";
+  updateFileControlLabel($("#mergeImageFiles"));
   $("#downloadMergedImageButton").disabled = true;
   revokeUrl("mergedImageUrl");
 }
@@ -371,6 +395,19 @@ function reorderMergeImage(sourceId, targetId) {
   if (sourceIndex < 0 || targetIndex < 0) return;
   const [source] = state.mergeImages.splice(sourceIndex, 1);
   state.mergeImages.splice(targetIndex, 0, source);
+  renderMergeImageQueue();
+  $("#mergeImageMeta").textContent = "排序已更新，重新生成后可下载。";
+  updateFileControlLabel($("#mergeImageFiles"));
+  $("#downloadMergedImageButton").disabled = true;
+  revokeUrl("mergedImageUrl");
+}
+
+function moveMergeImage(id, direction) {
+  const index = state.mergeImages.findIndex((item) => item.id === id);
+  if (index < 0) return;
+  const nextIndex = direction === "up" ? index - 1 : index + 1;
+  if (nextIndex < 0 || nextIndex >= state.mergeImages.length) return;
+  [state.mergeImages[index], state.mergeImages[nextIndex]] = [state.mergeImages[nextIndex], state.mergeImages[index]];
   renderMergeImageQueue();
   $("#mergeImageMeta").textContent = "排序已更新，重新生成后可下载。";
   $("#downloadMergedImageButton").disabled = true;
@@ -393,7 +430,11 @@ function renderMergeImageQueue() {
           <strong>${escapeHtml(item.file.name)}</strong>
           <span>${formatBytes(item.file.size)} · ${escapeHtml(formatImageType(item.file.type || imageTypeFromName(item.file.name)))}</span>
         </div>
-        <button class="row-action danger" type="button" data-remove-merge-image="${item.id}">删除</button>
+        <div class="file-row-actions">
+          <button class="row-action secondary" type="button" data-move-merge-image="${item.id}" data-move-direction="up" ${index === 0 ? "disabled" : ""}>上移</button>
+          <button class="row-action secondary" type="button" data-move-merge-image="${item.id}" data-move-direction="down" ${index === state.mergeImages.length - 1 ? "disabled" : ""}>下移</button>
+          <button class="row-action danger" type="button" data-remove-merge-image="${item.id}">删除</button>
+        </div>
       </div>
     `)
     .join("");
@@ -845,10 +886,13 @@ function setupBase64Tool() {
 }
 
 function setupImageConvertTool() {
-  const input = $("#convertImageFiles");
-  input.addEventListener("change", () => {
-    renderFileList(input.files, $("#convertImageList"));
-    renderConvertPreview();
+  setupFileQueue({
+    queueName: "convertImages",
+    inputSelector: "#convertImageFiles",
+    listSelector: "#convertImageList",
+    emptyText: "尚未选择图片",
+    acceptFile: isSupportedImageFile,
+    onChange: renderConvertPreview,
   });
   $("#convertOutputType").addEventListener("change", renderConvertPreview);
   $("#convertQuality").addEventListener("input", () => {
@@ -859,7 +903,7 @@ function setupImageConvertTool() {
 }
 
 async function renderConvertPreview() {
-  const file = $("#convertImageFiles").files[0];
+  const file = fileQueueFiles("convertImages")[0];
   const canvas = $("#convertPreviewCanvas");
   const meta = $("#convertMeta");
   if (!file) {
@@ -890,7 +934,7 @@ async function renderConvertPreview() {
 }
 
 async function convertImages() {
-  const files = [...$("#convertImageFiles").files];
+  const files = fileQueueFiles("convertImages");
   if (!files.length) return showToast("请先选择图片", true);
 
   try {
@@ -995,6 +1039,14 @@ function imageTypeFromName(name) {
   return types[extension] || "image/*";
 }
 
+function isSupportedImageFile(file) {
+  return /^image\/(jpeg|png|gif|svg\+xml|webp)$/.test(file.type) || /\.(jpe?g|png|gif|svg|webp)$/i.test(file.name);
+}
+
+function isPdfFile(file) {
+  return file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+}
+
 function setupResizeTool() {
   const input = $("#resizeImageFile");
   const canvas = $("#resizeCanvas");
@@ -1053,10 +1105,22 @@ function setupResizeTool() {
 }
 
 function setupPdfTools() {
-  $("#mergePdfFiles").addEventListener("change", (event) => renderFileList(event.target.files, $("#mergePdfList")));
+  setupFileQueue({
+    queueName: "mergePdf",
+    inputSelector: "#mergePdfFiles",
+    listSelector: "#mergePdfList",
+    emptyText: "尚未选择 PDF。",
+    acceptFile: isPdfFile,
+  });
   $("#mergePdfButton").addEventListener("click", mergePdfs);
   $("#pdfToImagesButton").addEventListener("click", pdfToImages);
-  $("#imagesToPdfFiles").addEventListener("change", (event) => renderFileList(event.target.files, $("#imagesToPdfList")));
+  setupFileQueue({
+    queueName: "imagesToPdf",
+    inputSelector: "#imagesToPdfFiles",
+    listSelector: "#imagesToPdfList",
+    emptyText: "尚未选择图片。",
+    acceptFile: isSupportedImageFile,
+  });
   $("#imagesToPdfMargin").addEventListener("input", () => {
     $("#imagesToPdfMarginLabel").textContent = $("#imagesToPdfMargin").value;
   });
@@ -1064,7 +1128,7 @@ function setupPdfTools() {
 }
 
 async function mergePdfs() {
-  const files = [...$("#mergePdfFiles").files];
+  const files = fileQueueFiles("mergePdf");
   if (files.length < 2) return showToast("请至少选择两个 PDF", true);
   try {
     showToast("正在加载 PDF 合并库...");
@@ -1117,7 +1181,7 @@ async function pdfToImages() {
 }
 
 async function imagesToPdf() {
-  const files = [...$("#imagesToPdfFiles").files];
+  const files = fileQueueFiles("imagesToPdf");
   const log = $("#pdfImagesLog");
   if (!files.length) return showToast("请先选择图片", true);
 
@@ -1200,12 +1264,20 @@ function imagePlacement(imageWidth, imageHeight, pageWidth, pageHeight, mode, ma
 }
 
 function setupCryptoTool() {
+  setupFileQueue({
+    queueName: "folder",
+    inputSelector: "#folderInput",
+    listSelector: "#folderFileList",
+    emptyText: "尚未选择文件夹。",
+    describeFile: (file) => file.webkitRelativePath || file.name,
+    max: 5000,
+  });
   $("#encryptFolderButton").addEventListener("click", encryptFolder);
   $("#decryptFolderButton").addEventListener("click", decryptFolder);
 }
 
 async function encryptFolder() {
-  const files = [...$("#folderInput").files];
+  const files = fileQueueFiles("folder");
   const password = $("#folderPassword").value;
   const log = $("#cryptoLog");
   if (!files.length) return showToast("请先选择文件夹", true);
@@ -1946,6 +2018,169 @@ function renderFileList(files, target) {
   target.innerHTML = list.length
     ? list.map((file, index) => `<div class="file-row"><strong>${index + 1}. ${escapeHtml(file.name)}</strong><span>${formatBytes(file.size)}</span></div>`).join("")
     : "尚未选择文件";
+}
+
+function setupFileQueue({ queueName, inputSelector, listSelector, emptyText, acceptFile, describeFile, onChange, max = 1000 }) {
+  state.fileQueueOptions ||= {};
+  state.fileQueueOptions[queueName] = {
+    inputSelector,
+    listSelector,
+    emptyText,
+    describeFile: describeFile || ((file) => file.name),
+    onChange,
+  };
+
+  const input = $(inputSelector);
+  const list = $(listSelector);
+  input.dataset.fileQueueName = queueName;
+  input.addEventListener("change", () => {
+    addFileQueueItems(queueName, [...input.files], { acceptFile, max });
+    input.value = "";
+    updateFileQueueControlLabel(input, queueName);
+  });
+
+  list.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-file-queue-action]");
+    if (!button) return;
+    handleFileQueueAction(queueName, Number(button.dataset.fileQueueId), button.dataset.fileQueueAction);
+  });
+
+  list.addEventListener("dragstart", (event) => {
+    const row = event.target.closest("[data-file-queue-id]");
+    if (!row) return;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", row.dataset.fileQueueId);
+    row.classList.add("is-dragging");
+  });
+  list.addEventListener("dragend", (event) => {
+    event.target.closest("[data-file-queue-id]")?.classList.remove("is-dragging");
+  });
+  list.addEventListener("dragover", (event) => {
+    const row = event.target.closest("[data-file-queue-id]");
+    if (!row) return;
+    event.preventDefault();
+    row.classList.add("is-drop-target");
+  });
+  list.addEventListener("dragleave", (event) => {
+    event.target.closest("[data-file-queue-id]")?.classList.remove("is-drop-target");
+  });
+  list.addEventListener("drop", (event) => {
+    const row = event.target.closest("[data-file-queue-id]");
+    if (!row) return;
+    event.preventDefault();
+    row.classList.remove("is-drop-target");
+    reorderFileQueueItem(queueName, Number(event.dataTransfer.getData("text/plain")), Number(row.dataset.fileQueueId));
+  });
+
+  renderFileQueue(queueName);
+}
+
+function addFileQueueItems(queueName, files, { acceptFile, max }) {
+  const queue = state.fileQueues[queueName];
+  const accepted = files.filter((file) => !acceptFile || acceptFile(file));
+  const existingKeys = new Set(queue.map((item) => fileQueueItemKey(item.file)));
+  const unique = accepted.filter((file) => !existingKeys.has(fileQueueItemKey(file)));
+  const remaining = Math.max(0, max - queue.length);
+  const added = unique.slice(0, remaining).map((file) => ({ id: state.nextFileQueueId++, file }));
+  queue.push(...added);
+  renderFileQueue(queueName);
+  notifyFileQueueChanged(queueName);
+
+  if (accepted.length !== files.length) showToast("部分文件类型不支持，已忽略", true);
+  if (unique.length !== accepted.length) showToast("重复文件已忽略", true);
+  if (unique.length > remaining) showToast(`最多只能添加 ${max} 个文件，超出的已忽略`, true);
+}
+
+function handleFileQueueAction(queueName, id, action) {
+  const queue = state.fileQueues[queueName];
+  const index = queue.findIndex((item) => item.id === id);
+  if (index < 0) return;
+
+  if (action === "delete") {
+    queue.splice(index, 1);
+  }
+
+  if (action === "up" && index > 0) {
+    [queue[index - 1], queue[index]] = [queue[index], queue[index - 1]];
+  }
+
+  if (action === "down" && index < queue.length - 1) {
+    [queue[index + 1], queue[index]] = [queue[index], queue[index + 1]];
+  }
+
+  renderFileQueue(queueName);
+  notifyFileQueueChanged(queueName);
+}
+
+function reorderFileQueueItem(queueName, sourceId, targetId) {
+  if (!sourceId || !targetId || sourceId === targetId) return;
+  const queue = state.fileQueues[queueName];
+  const sourceIndex = queue.findIndex((item) => item.id === sourceId);
+  const targetIndex = queue.findIndex((item) => item.id === targetId);
+  if (sourceIndex < 0 || targetIndex < 0) return;
+  const [source] = queue.splice(sourceIndex, 1);
+  queue.splice(targetIndex, 0, source);
+  renderFileQueue(queueName);
+  notifyFileQueueChanged(queueName);
+}
+
+function renderFileQueue(queueName) {
+  const options = state.fileQueueOptions?.[queueName];
+  if (!options) return;
+  const queue = state.fileQueues[queueName];
+  const target = $(options.listSelector);
+  if (!queue.length) {
+    target.textContent = options.emptyText || "尚未选择文件";
+    return;
+  }
+
+  target.innerHTML = queue
+    .map((item, index) => {
+      const title = options.describeFile(item.file);
+      const meta = [formatBytes(item.file.size), item.file.type || fileExtensionLabel(item.file.name)].filter(Boolean).join(" · ");
+      return `
+        <div class="file-row file-queue-row" draggable="true" data-file-queue-id="${item.id}">
+          <span class="merge-image-order">${index + 1}</span>
+          <div>
+            <strong>${escapeHtml(title)}</strong>
+            <span>${escapeHtml(meta)}</span>
+          </div>
+          <div class="file-row-actions">
+            <button class="row-action secondary" type="button" data-file-queue-action="up" data-file-queue-id="${item.id}" ${index === 0 ? "disabled" : ""}>上移</button>
+            <button class="row-action secondary" type="button" data-file-queue-action="down" data-file-queue-id="${item.id}" ${index === queue.length - 1 ? "disabled" : ""}>下移</button>
+            <button class="row-action danger" type="button" data-file-queue-action="delete" data-file-queue-id="${item.id}">删除</button>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function notifyFileQueueChanged(queueName) {
+  const options = state.fileQueueOptions?.[queueName];
+  if (!options) return;
+  updateFileControlLabel($(options.inputSelector));
+  options.onChange?.(state.fileQueues[queueName].map((item) => item.file));
+}
+
+function updateFileQueueControlLabel(input, queueName) {
+  const label = input.closest(".file-control")?.querySelector(".file-control-label");
+  if (!label) return;
+  const count = state.fileQueues[queueName].length;
+  label.textContent = count ? `已添加 ${count} 个文件，可继续添加` : (input.hasAttribute("webkitdirectory") ? "未选择文件夹" : "未选择任何文件");
+}
+
+function fileQueueFiles(queueName) {
+  return state.fileQueues[queueName].map((item) => item.file);
+}
+
+function fileQueueItemKey(file) {
+  return `${file.webkitRelativePath || file.name}:${file.size}:${file.lastModified}`;
+}
+
+function fileExtensionLabel(name) {
+  const extension = String(name || "").split(".").pop();
+  return extension && extension !== name ? extension.toUpperCase() : "";
 }
 
 function downloadBlob(blob, filename) {

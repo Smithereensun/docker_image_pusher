@@ -338,8 +338,9 @@
           </div>
           <div class="tool-grid">
             <div class="control-card">
-              <label for="convertImageFiles">选择图片</label>
+              <label for="convertImageFiles">添加图片</label>
               <input id="convertImageFiles" type="file" multiple accept="image/jpeg,image/png,image/svg+xml,image/webp" />
+              <p class="muted">可分多次添加，并在列表中调整顺序或删除。</p>
               <label for="convertOutputType">目标格式</label>
               <select id="convertOutputType">
                 <option value="image/png">PNG</option>
@@ -440,8 +441,9 @@
             </div>
             <div class="control-card">
               <h3>图片转 PDF</h3>
-              <label for="imagesToPdfFiles">选择图片</label>
+              <label for="imagesToPdfFiles">添加图片</label>
               <input id="imagesToPdfFiles" type="file" multiple accept="image/jpeg,image/png,image/svg+xml,image/webp" />
+              <p class="muted">可分多次添加，PDF 会按下方列表顺序生成。</p>
               <label for="imagesToPdfPageMode">页面尺寸</label>
               <select id="imagesToPdfPageMode">
                 <option value="image">跟随图片尺寸</option>
@@ -467,9 +469,9 @@
           </div>
           <div class="tool-grid">
             <div class="control-card">
-              <label for="mergePdfFiles">选择 PDF</label>
+              <label for="mergePdfFiles">添加 PDF</label>
               <input id="mergePdfFiles" type="file" multiple accept="application/pdf" />
-              <p class="muted">如需调整顺序，请按需要的顺序重新选择文件。</p>
+              <p class="muted">可分多次添加，上移、下移或拖拽调整合并顺序。</p>
             </div>
             <div class="file-list" id="mergePdfList">尚未选择 PDF。</div>
           </div>
@@ -487,9 +489,11 @@
               <h3>加密文件夹</h3>
               <label for="folderInput">选择文件夹</label>
               <input id="folderInput" type="file" webkitdirectory multiple />
+              <p class="muted">选择后可删除不需要加密的文件，也可调整打包顺序。</p>
               <label for="folderPassword">加密密码</label>
               <input id="folderPassword" type="password" autocomplete="new-password" />
               <button type="button" id="encryptFolderButton">生成加密 zip 包</button>
+              <div class="file-list" id="folderFileList">尚未选择文件夹。</div>
             </div>
             <div class="control-card">
               <h3>解密加密包</h3>
