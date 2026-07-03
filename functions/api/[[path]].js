@@ -42,7 +42,7 @@ export async function onRequest(context) {
     }
 
     if (request.method === "POST" && route === "export") {
-      return await dispatchExportWorkflow(env);
+      return await dispatchExportWorkflow(request, env);
     }
 
     if (request.method === "GET" && route === "exports") {
@@ -90,7 +90,7 @@ async function updateImages(request, env) {
 
   const existingSha = await resolveSha(env, body.sha);
   const payload = {
-    message: env.COMMIT_MESSAGE || "Update images.txt from Cloudflare Pages",
+    message: env.COMMIT_MESSAGE || "通过网页更新镜像列表",
     content: toBase64(body.content.endsWith("\n") ? body.content : `${body.content}\n`),
     branch: branch(env),
   };
@@ -123,16 +123,31 @@ async function dispatchWorkflow(env) {
 
   if (!result.ok) {
     const data = await result.json().catch(() => ({}));
-    throw statusError(data.message || "触发 workflow 失败", result.status);
+    throw statusError(data.message || "触发转存任务失败", result.status);
   }
 
   return json({ ok: true }, 202);
 }
 
-async function dispatchExportWorkflow(env) {
+async function dispatchExportWorkflow(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const content = typeof body.content === "string" ? body.content.trim() : "";
+  if (!content) {
+    throw statusError("请先选择至少一个要导出的镜像", 400);
+  }
+
+  if (content.length > 60000) {
+    throw statusError("选择的镜像列表过长，请减少数量后重试", 400);
+  }
+
   const result = await github(env, `/repos/${repoPath(env)}/actions/workflows/${encodeURIComponent(exportWorkflowFile(env))}/dispatches`, {
     method: "POST",
-    body: JSON.stringify({ ref: branch(env) }),
+    body: JSON.stringify({
+      ref: branch(env),
+      inputs: {
+        images_b64: toBase64(content.endsWith("\n") ? content : `${content}\n`),
+      },
+    }),
   });
 
   if (!result.ok) {
@@ -279,7 +294,7 @@ async function validateImage(entry) {
     return {
       ...entry,
       status: "skipped",
-      message: "非 Docker Hub 镜像，保存后由 GitHub Action 实际拉取。",
+      message: "非公共仓库镜像，保存后由转存任务实际拉取。",
     };
   }
 
@@ -293,7 +308,7 @@ async function validateImage(entry) {
       return {
         ...entry,
         status: "unknown",
-        message: `Docker Hub 鉴权检测失败：HTTP ${tokenResult.status}`,
+        message: `公共仓库鉴权检测失败：HTTP ${tokenResult.status}`,
       };
     }
 
@@ -313,7 +328,7 @@ async function validateImage(entry) {
       return {
         ...entry,
         status: "valid",
-        message: "Docker Hub 可公开拉取。",
+        message: "公共仓库可拉取。",
       };
     }
 
@@ -321,14 +336,14 @@ async function validateImage(entry) {
       return {
         ...entry,
         status: "invalid",
-        message: "Docker Hub 返回无权限或不存在，GitHub Action 大概率会 pull 失败。",
+        message: "公共仓库返回无权限或不存在，转存任务大概率会拉取失败。",
       };
     }
 
     return {
       ...entry,
       status: "unknown",
-      message: `Docker Hub 暂时无法确认：HTTP ${manifestResult.status}`,
+      message: `公共仓库暂时无法确认：HTTP ${manifestResult.status}`,
     };
   } catch (error) {
     return {

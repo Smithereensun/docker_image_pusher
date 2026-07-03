@@ -1,7 +1,12 @@
-name: Export Docker Images
+name: 导出镜像包
 
 on:
   workflow_dispatch:
+    inputs:
+      images_b64:
+        description: 网页中选中的镜像列表，使用 Base64 编码传入
+        required: true
+        type: string
 
 env:
   ALIYUN_REGISTRY: "${{ secrets.ALIYUN_REGISTRY }}"
@@ -11,13 +16,13 @@ env:
 
 jobs:
   export:
-    name: Export
+    name: 生成镜像包
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: 拉取代码
         uses: actions/checkout@v5
 
-      - name: Prepare disk
+      - name: 准备磁盘空间
         uses: easimon/maximize-build-space@master
         with:
           root-reserve-mb: 2048
@@ -26,14 +31,17 @@ jobs:
           remove-haskell: 'true'
           build-mount-path: '/var/lib/docker/'
 
-      - name: Restart docker
+      - name: 重启容器服务
         run: sudo service docker restart
 
-      - name: Pull from Aliyun and export
+      - name: 拉取阿里云镜像并打包
         run: |
           set -euo pipefail
 
           docker login -u "$ALIYUN_REGISTRY_USER" -p "$ALIYUN_REGISTRY_PASSWORD" "$ALIYUN_REGISTRY"
+
+          printf '%s' '${{ inputs.images_b64 }}' | base64 -d > selected-images.txt
+          image_list_file="selected-images.txt"
 
           declare -A duplicate_images
           declare -A temp_map
@@ -57,10 +65,15 @@ jobs:
               else
                   temp_map[$image_name]=$name_space
               fi
-          done < images.txt
+          done < "$image_list_file"
 
           mkdir -p export
           export_images=()
+          {
+            echo "镜像包清单"
+            echo "生成时间：$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo
+          } > export/manifest.txt
 
           while IFS= read -r line || [ -n "$line" ]; do
               [[ -z "$line" ]] && continue
@@ -96,19 +109,27 @@ jobs:
                 echo "docker tag $aliyun_image $image"
                 docker tag "$aliyun_image" "$image"
                 export_images+=("$image")
+                export_image="$image"
               else
                 export_images+=("$aliyun_image")
+                export_image="$aliyun_image"
               fi
-          done < images.txt
+
+              {
+                echo "原始镜像：$image"
+                echo "阿里云镜像：$aliyun_image"
+                echo "包内标签：$export_image"
+                if [ -n "$platform" ]; then
+                  echo "指定架构：$platform"
+                fi
+                echo
+              } >> export/manifest.txt
+          done < "$image_list_file"
 
           docker save "${export_images[@]}" | gzip > export/docker-images.tar.gz
-          cat > export/README.txt <<'EOF'
-Import with:
+          printf '导入方式：\n\n  docker load -i docker-images.tar.gz\n\n镜像清单请查看 manifest.txt。\n' > export/README.txt
 
-  docker load -i docker-images.tar.gz
-          EOF
-
-      - name: Upload docker image archive
+      - name: 上传镜像包
         uses: actions/upload-artifact@v4
         with:
           name: docker-images

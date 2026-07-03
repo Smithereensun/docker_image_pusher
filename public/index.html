@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Docker Images Pusher</title>
+    <title>容器镜像转存台</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="shell">
       <section class="topbar" aria-label="项目状态">
         <div>
-          <p class="eyebrow">Cloudflare Pages</p>
-          <h1>Docker Images Pusher</h1>
+          <p class="eyebrow">网页控制台</p>
+          <h1>容器镜像转存台</h1>
         </div>
         <div class="status-pill" id="connectionStatus">未连接</div>
       </section>
@@ -19,7 +19,7 @@
       <section class="login-panel" id="loginPanel">
         <div>
           <h2>连接管理入口</h2>
-          <p>输入 Cloudflare 环境变量中配置的访问密码，网页会通过后端安全地修改 GitHub 仓库里的 images.txt。</p>
+          <p>输入环境变量中配置的访问密码，系统会通过后端安全地修改仓库里的镜像列表。</p>
         </div>
         <form id="loginForm" class="login-form">
           <label for="password">访问密码</label>
@@ -33,12 +33,12 @@
       <section class="workspace is-hidden" id="workspace">
         <div class="editor-header">
           <div>
-            <p class="eyebrow" id="repoLabel">GitHub 仓库</p>
+            <p class="eyebrow" id="repoLabel">代码仓库</p>
             <h2>镜像列表</h2>
           </div>
           <div class="toolbar">
             <button class="secondary" id="refreshButton" type="button">刷新</button>
-            <button class="secondary" id="runButton" type="button">运行 Action</button>
+            <button class="secondary" id="runButton" type="button">运行转存</button>
             <button id="saveButton" type="button">保存并提交</button>
           </div>
         </div>
@@ -60,12 +60,20 @@
             </div>
             <div class="download-panel">
               <div class="runs-head">
-                <strong>浏览器下载</strong>
+                <strong>镜像包导出</strong>
                 <button class="secondary small-button" id="exportButton" type="button">生成镜像包</button>
               </div>
               <div class="download-meta" id="downloadMeta">
-                生成完成后会出现下载链接，浏览器可直接下载 docker-images.tar.gz。
+                选择需要导出的镜像，生成完成后可直接在浏览器下载。
               </div>
+              <div class="export-list-head">
+                <span>本次打包镜像</span>
+                <div>
+                  <button class="link-button" id="selectAllExportsButton" type="button">全选</button>
+                  <button class="link-button" id="clearExportsButton" type="button">清空</button>
+                </div>
+              </div>
+              <div id="exportImageList" class="export-image-list">暂无可选镜像</div>
               <div id="downloadsList" class="downloads-list">暂无镜像包</div>
             </div>
             <div class="validation">
@@ -73,7 +81,7 @@
                 <strong>保存前检测</strong>
                 <button class="secondary small-button" id="validateButton" type="button">检测</button>
               </div>
-              <div id="validationList" class="validation-list">保存前会自动检测 Docker Hub 公共镜像。</div>
+              <div id="validationList" class="validation-list">保存前会自动检测公共镜像是否可拉取。</div>
             </div>
             <div class="runs">
               <div class="runs-head">

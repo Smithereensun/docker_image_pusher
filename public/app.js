@@ -1,5 +1,6 @@
 const state = {
   password: localStorage.getItem("docker-images-pusher-password") || "",
+  exportSelections: new Map(),
   sha: null,
   originalContent: "",
   config: null,
@@ -20,6 +21,9 @@ const elements = {
   runButton: document.querySelector("#runButton"),
   exportButton: document.querySelector("#exportButton"),
   downloadMeta: document.querySelector("#downloadMeta"),
+  selectAllExportsButton: document.querySelector("#selectAllExportsButton"),
+  clearExportsButton: document.querySelector("#clearExportsButton"),
+  exportImageList: document.querySelector("#exportImageList"),
   downloadsList: document.querySelector("#downloadsList"),
   validateButton: document.querySelector("#validateButton"),
   validationList: document.querySelector("#validationList"),
@@ -41,8 +45,17 @@ elements.refreshButton.addEventListener("click", () => loadImages());
 elements.saveButton.addEventListener("click", () => saveImages());
 elements.runButton.addEventListener("click", () => runWorkflow());
 elements.exportButton.addEventListener("click", () => exportImages());
+elements.selectAllExportsButton.addEventListener("click", () => setAllExportSelections(true));
+elements.clearExportsButton.addEventListener("click", () => setAllExportSelections(false));
 elements.validateButton.addEventListener("click", () => validateCurrentImages(true));
 elements.runsRefreshButton.addEventListener("click", () => loadRuns());
+elements.exportImageList.addEventListener("change", (event) => {
+  if (!event.target.matches("[data-export-key]")) {
+    return;
+  }
+  state.exportSelections.set(event.target.dataset.exportKey, event.target.checked);
+  renderDownloadMeta();
+});
 elements.downloadsList.addEventListener("click", (event) => {
   const button = event.target.closest("[data-download-url]");
   if (!button) {
@@ -52,6 +65,7 @@ elements.downloadsList.addEventListener("click", (event) => {
 });
 elements.imagesEditor.addEventListener("input", () => {
   updateCount();
+  renderExportImageList();
   renderDownloadMeta();
   elements.validationList.textContent = "内容已修改，保存前会重新检测。";
 });
@@ -87,8 +101,9 @@ async function loadImages() {
     state.originalContent = data.content || "";
     elements.imagesEditor.value = state.originalContent;
     updateCount();
+    renderExportImageList();
     renderDownloadMeta();
-    showToast("已读取 images.txt");
+    showToast("已读取镜像列表");
   } catch (error) {
     showToast(error.message, true);
   } finally {
@@ -122,7 +137,7 @@ async function saveImages() {
     });
     state.sha = data.sha;
     state.originalContent = payload.content.endsWith("\n") ? payload.content : `${payload.content}\n`;
-    showToast("已提交到 GitHub，Action 会自动开始运行");
+    showToast("已提交到仓库，转存任务会自动开始");
     await loadRuns();
   } catch (error) {
     showToast(error.message, true);
@@ -164,7 +179,7 @@ async function runWorkflow() {
   try {
     setBusy(true);
     await api("/api/run", { method: "POST" });
-    showToast("已触发 GitHub Action");
+    showToast("已触发转存任务");
     setTimeout(loadRuns, 1200);
   } catch (error) {
     showToast(error.message, true);
@@ -185,8 +200,17 @@ async function loadRuns() {
 async function exportImages() {
   try {
     setBusy(true);
-    await api("/api/export", { method: "POST" });
-    showToast("已开始生成镜像包，完成后会出现下载链接");
+    const selectedContent = selectedExportContent();
+    if (!selectedContent) {
+      showToast("请先选择至少一个要打包的镜像", true);
+      return;
+    }
+
+    await api("/api/export", {
+      method: "POST",
+      body: JSON.stringify({ content: selectedContent }),
+    });
+    showToast("已开始生成选中的镜像包，完成后会出现下载链接");
     setTimeout(loadDownloads, 2500);
   } catch (error) {
     showToast(error.message, true);
@@ -226,7 +250,7 @@ async function downloadArtifact(path) {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "docker-images.zip";
+    anchor.download = "镜像包.zip";
     document.body.append(anchor);
     anchor.click();
     anchor.remove();
@@ -252,7 +276,7 @@ function renderValidation(results) {
   ];
 
   if (!visibleResults.length) {
-    elements.validationList.innerHTML = '<div class="validation-item ok"><strong>检测通过</strong><span class="validation-meta">Docker Hub 公共镜像均可公开拉取。</span></div>';
+    elements.validationList.innerHTML = '<div class="validation-item ok"><strong>检测通过</strong><span class="validation-meta">公共镜像均可拉取。</span></div>';
     return;
   }
 
@@ -271,13 +295,44 @@ function renderValidation(results) {
 
 function renderDownloadMeta() {
   const entries = parseManagedImageLines(elements.imagesEditor.value || "");
+  const selectedCount = selectedExportEntries().length;
 
   if (!entries.length) {
     elements.downloadMeta.textContent = "当前没有可导出的有效镜像。";
     return;
   }
 
-  elements.downloadMeta.textContent = `将为 ${entries.length} 个镜像生成 docker-images.tar.gz，完成后可用浏览器下载。`;
+  elements.downloadMeta.textContent = `已选择 ${selectedCount}/${entries.length} 个镜像，生成完成后可直接下载。`;
+}
+
+function renderExportImageList() {
+  const entries = parseManagedImageLines(elements.imagesEditor.value || "");
+  const nextSelections = new Map();
+
+  if (!entries.length) {
+    state.exportSelections = nextSelections;
+    elements.exportImageList.textContent = "暂无可选镜像";
+    return;
+  }
+
+  elements.exportImageList.innerHTML = entries
+    .map((entry) => {
+      const key = exportEntryKey(entry);
+      const checked = state.exportSelections.has(key) ? state.exportSelections.get(key) : true;
+      nextSelections.set(key, checked);
+      return `
+        <label class="export-image-item">
+          <input type="checkbox" data-export-key="${escapeHtml(key)}" ${checked ? "checked" : ""} />
+          <span>
+            <span class="export-image-name">${escapeHtml(entry.image)}</span>
+            <span class="export-image-meta">第 ${escapeHtml(entry.lineNumber)} 行${entry.platform ? ` · ${escapeHtml(entry.platform)}` : ""}</span>
+          </span>
+        </label>
+      `;
+    })
+    .join("");
+
+  state.exportSelections = nextSelections;
 }
 
 function renderDownloads(runs, artifacts) {
@@ -295,7 +350,7 @@ function renderDownloads(runs, artifacts) {
       const createdAt = new Date(artifact.created_at).toLocaleString();
       return `
         <div class="download-item">
-          <button class="link-button" type="button" data-download-url="${escapeHtml(artifact.download_url)}">下载 docker-images.zip</button>
+          <button class="link-button" type="button" data-download-url="${escapeHtml(artifact.download_url)}">下载镜像包</button>
           <span class="run-meta">${formatBytes(artifact.size_in_bytes)} · ${escapeHtml(createdAt)}</span>
         </div>
       `;
@@ -303,7 +358,7 @@ function renderDownloads(runs, artifacts) {
     .join("");
 
   elements.downloadsList.innerHTML = `
-    ${latestRun ? `<div class="download-item"><a href="${escapeHtml(latestRun.html_url)}" target="_blank" rel="noreferrer">导出任务 #${escapeHtml(latestRun.run_number)} ${escapeHtml(runStatus)}</a><span class="run-meta">${escapeHtml(latestRun.event)} · ${escapeHtml(new Date(latestRun.created_at).toLocaleString())}</span></div>` : ""}
+    ${latestRun ? `<div class="download-item"><a href="${escapeHtml(latestRun.html_url)}" target="_blank" rel="noreferrer">导出任务 #${escapeHtml(latestRun.run_number)} ${escapeHtml(formatRunStatus(runStatus))}</a><span class="run-meta">${escapeHtml(formatRunEvent(latestRun.event))} · ${escapeHtml(new Date(latestRun.created_at).toLocaleString())}</span></div>` : ""}
     ${artifactItems || '<div class="download-item"><span class="run-meta">镜像包生成中，稍后刷新页面查看下载链接。</span></div>'}
   `;
 }
@@ -320,8 +375,8 @@ function renderRuns(runs) {
       const createdAt = new Date(run.created_at).toLocaleString();
       return `
         <div class="run-item">
-          <a href="${escapeHtml(run.html_url)}" target="_blank" rel="noreferrer">#${run.run_number} ${escapeHtml(status)}</a>
-          <span class="run-meta">${escapeHtml(run.event)} · ${escapeHtml(createdAt)}</span>
+          <a href="${escapeHtml(run.html_url)}" target="_blank" rel="noreferrer">#${run.run_number} ${escapeHtml(formatRunStatus(status))}</a>
+          <span class="run-meta">${escapeHtml(formatRunEvent(run.event))} · ${escapeHtml(createdAt)}</span>
         </div>
       `;
     })
@@ -357,6 +412,14 @@ function parseJson(text) {
 function updateCount() {
   const count = parseManagedImageLines(elements.imagesEditor.value).length;
   elements.imageCount.textContent = String(count);
+}
+
+function setAllExportSelections(checked) {
+  for (const key of state.exportSelections.keys()) {
+    state.exportSelections.set(key, checked);
+  }
+  renderExportImageList();
+  renderDownloadMeta();
 }
 
 function setBusy(busy) {
@@ -397,6 +460,20 @@ function parseManagedImageLines(content) {
     .filter((entry) => entry.image);
 }
 
+function selectedExportEntries() {
+  return parseManagedImageLines(elements.imagesEditor.value || "").filter((entry) => state.exportSelections.get(exportEntryKey(entry)) !== false);
+}
+
+function selectedExportContent() {
+  return selectedExportEntries()
+    .map((entry) => entry.raw)
+    .join("\n");
+}
+
+function exportEntryKey(entry) {
+  return `${entry.lineNumber}:${entry.raw}`;
+}
+
 function parsePlatform(line) {
   const match = String(line).match(/(?:^|\s)--platform(?:=|\s+)(\S+)/);
   return match ? match[1] : "";
@@ -414,4 +491,35 @@ function formatBytes(value) {
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   }
   return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
+}
+
+function formatRunStatus(status) {
+  const labels = {
+    success: "成功",
+    failure: "失败",
+    cancelled: "已取消",
+    skipped: "已跳过",
+    timed_out: "超时",
+    action_required: "需要处理",
+    queued: "排队中",
+    requested: "已请求",
+    waiting: "等待中",
+    pending: "等待中",
+    in_progress: "运行中",
+    completed: "已完成",
+    neutral: "无变更",
+    stale: "已过期",
+    startup_failure: "启动失败",
+    unknown: "未知状态",
+  };
+  return labels[status] || status || "未知状态";
+}
+
+function formatRunEvent(event) {
+  const labels = {
+    push: "提交触发",
+    workflow_dispatch: "手动触发",
+    schedule: "定时触发",
+  };
+  return labels[event] || event || "未知来源";
 }
