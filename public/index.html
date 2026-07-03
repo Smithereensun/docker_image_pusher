@@ -72,7 +72,7 @@
           <div class="panel-head">
             <div>
               <h2>在线合并图片</h2>
-              <p>支持 JPG、PNG、SVG、WEBP，按上传顺序横向或纵向合并后下载。</p>
+              <p>支持 JPG、PNG、GIF、WEBP、SVG，可多次添加、拖拽排序、单张删除后再合并下载。</p>
             </div>
             <div class="toolbar">
               <button type="button" id="mergeImagesButton">生成图片</button>
@@ -81,8 +81,9 @@
           </div>
           <div class="tool-grid">
             <div class="control-card">
-              <label for="mergeImageFiles">选择图片</label>
-              <input id="mergeImageFiles" type="file" multiple accept="image/jpeg,image/png,image/svg+xml,image/webp" />
+              <label for="mergeImageFiles">添加图片</label>
+              <input id="mergeImageFiles" type="file" multiple accept="image/jpeg,image/png,image/gif,image/svg+xml,image/webp" />
+              <p class="muted">可分多次添加，最多 100 张；拖放列表项可调整合并顺序。</p>
               <div class="segmented" role="group" aria-label="合并方向">
                 <label><input type="radio" name="mergeDirection" value="vertical" checked /> 垂直</label>
                 <label><input type="radio" name="mergeDirection" value="horizontal" /> 水平</label>

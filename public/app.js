@@ -71,6 +71,8 @@ const state = {
   config: null,
   imageRows: [],
   nextImageRowId: 1,
+  mergeImages: [],
+  nextMergeImageId: 1,
   mergedImageUrl: "",
   processedImageUrl: "",
   resizeSource: null,
@@ -254,10 +256,47 @@ function setupImageMergeTool() {
   const canvas = $("#mergeCanvas");
   const meta = $("#mergeImageMeta");
 
-  input.addEventListener("change", () => renderFileList(input.files, list));
+  input.addEventListener("change", () => {
+    addMergeImages([...input.files]);
+    input.value = "";
+    updateFileControlLabel(input);
+    const label = input.closest(".file-control")?.querySelector(".file-control-label");
+    if (label && state.mergeImages.length) label.textContent = `已添加 ${state.mergeImages.length} 张图片，可继续添加`;
+  });
+  list.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-remove-merge-image]");
+    if (!button) return;
+    removeMergeImage(Number(button.dataset.removeMergeImage));
+  });
+  list.addEventListener("dragstart", (event) => {
+    const row = event.target.closest("[data-merge-image-id]");
+    if (!row) return;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", row.dataset.mergeImageId);
+    row.classList.add("is-dragging");
+  });
+  list.addEventListener("dragend", (event) => {
+    event.target.closest("[data-merge-image-id]")?.classList.remove("is-dragging");
+  });
+  list.addEventListener("dragover", (event) => {
+    const row = event.target.closest("[data-merge-image-id]");
+    if (!row) return;
+    event.preventDefault();
+    row.classList.add("is-drop-target");
+  });
+  list.addEventListener("dragleave", (event) => {
+    event.target.closest("[data-merge-image-id]")?.classList.remove("is-drop-target");
+  });
+  list.addEventListener("drop", (event) => {
+    const row = event.target.closest("[data-merge-image-id]");
+    if (!row) return;
+    event.preventDefault();
+    row.classList.remove("is-drop-target");
+    reorderMergeImage(Number(event.dataTransfer.getData("text/plain")), Number(row.dataset.mergeImageId));
+  });
   $("#mergeImagesButton").addEventListener("click", async () => {
-    const files = [...input.files];
-    if (!files.length) return showToast("请先选择图片", true);
+    const files = state.mergeImages.map((item) => item.file);
+    if (!files.length) return showToast("请先添加图片", true);
     try {
       const images = await Promise.all(files.map(loadImageFile));
       const direction = document.querySelector("input[name='mergeDirection']:checked").value;
@@ -293,6 +332,71 @@ function setupImageMergeTool() {
     const type = $("#mergeOutputType").value.split("/").at(-1).replace("jpeg", "jpg");
     downloadUrl(state.mergedImageUrl, `merged-image.${type}`);
   });
+}
+
+function addMergeImages(files) {
+  const allowed = files.filter((file) => /^image\/(jpeg|png|gif|svg\+xml|webp)$/.test(file.type) || /\.(jpe?g|png|gif|svg|webp)$/i.test(file.name));
+  if (!allowed.length) return;
+
+  const remaining = Math.max(0, 100 - state.mergeImages.length);
+  const accepted = allowed.slice(0, remaining);
+  const skipped = allowed.length - accepted.length;
+  state.mergeImages.push(...accepted.map((file) => ({
+    id: state.nextMergeImageId++,
+    file,
+    previewUrl: URL.createObjectURL(file),
+  })));
+  renderMergeImageQueue();
+  $("#mergeImageMeta").textContent = `已添加 ${state.mergeImages.length} 张图片，可拖拽排序后生成。`;
+  $("#downloadMergedImageButton").disabled = true;
+  revokeUrl("mergedImageUrl");
+  if (skipped > 0) showToast("最多只能添加 100 张图片，超出的已忽略", true);
+}
+
+function removeMergeImage(id) {
+  const index = state.mergeImages.findIndex((item) => item.id === id);
+  if (index < 0) return;
+  URL.revokeObjectURL(state.mergeImages[index].previewUrl);
+  state.mergeImages.splice(index, 1);
+  renderMergeImageQueue();
+  $("#mergeImageMeta").textContent = state.mergeImages.length ? `已添加 ${state.mergeImages.length} 张图片。` : "生成后在这里预览。";
+  $("#downloadMergedImageButton").disabled = true;
+  revokeUrl("mergedImageUrl");
+}
+
+function reorderMergeImage(sourceId, targetId) {
+  if (!sourceId || !targetId || sourceId === targetId) return;
+  const sourceIndex = state.mergeImages.findIndex((item) => item.id === sourceId);
+  const targetIndex = state.mergeImages.findIndex((item) => item.id === targetId);
+  if (sourceIndex < 0 || targetIndex < 0) return;
+  const [source] = state.mergeImages.splice(sourceIndex, 1);
+  state.mergeImages.splice(targetIndex, 0, source);
+  renderMergeImageQueue();
+  $("#mergeImageMeta").textContent = "排序已更新，重新生成后可下载。";
+  $("#downloadMergedImageButton").disabled = true;
+  revokeUrl("mergedImageUrl");
+}
+
+function renderMergeImageQueue() {
+  const list = $("#mergeImageList");
+  if (!state.mergeImages.length) {
+    list.textContent = "尚未选择图片";
+    return;
+  }
+
+  list.innerHTML = state.mergeImages
+    .map((item, index) => `
+      <div class="merge-image-row" draggable="true" data-merge-image-id="${item.id}">
+        <span class="merge-image-order">${index + 1}</span>
+        <img src="${escapeHtml(item.previewUrl)}" alt="" />
+        <div>
+          <strong>${escapeHtml(item.file.name)}</strong>
+          <span>${formatBytes(item.file.size)} · ${escapeHtml(formatImageType(item.file.type || imageTypeFromName(item.file.name)))}</span>
+        </div>
+        <button class="row-action danger" type="button" data-remove-merge-image="${item.id}">删除</button>
+      </div>
+    `)
+    .join("");
 }
 
 function setupGenerators() {
@@ -817,10 +921,24 @@ function formatImageType(type) {
   const labels = {
     "image/png": "PNG",
     "image/jpeg": "JPG",
+    "image/gif": "GIF",
     "image/webp": "WEBP",
     "image/svg+xml": "SVG",
   };
   return labels[type] || type;
+}
+
+function imageTypeFromName(name) {
+  const extension = String(name).split(".").pop()?.toLowerCase();
+  const types = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+    svg: "image/svg+xml",
+  };
+  return types[extension] || "image/*";
 }
 
 function setupResizeTool() {

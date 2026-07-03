@@ -800,6 +800,63 @@ canvas {
   font-weight: 720;
 }
 
+.merge-image-row {
+  display: grid;
+  grid-template-columns: 34px 54px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #e0e8ee;
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+  cursor: grab;
+}
+
+.merge-image-row.is-dragging {
+  opacity: 0.55;
+}
+
+.merge-image-row.is-drop-target {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(13, 107, 115, 0.12);
+}
+
+.merge-image-order {
+  display: inline-grid;
+  min-height: 30px;
+  place-items: center;
+  border-radius: 8px;
+  background: #eef3f5;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.merge-image-row img {
+  width: 54px;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f7fafb;
+  object-fit: contain;
+}
+
+.merge-image-row strong,
+.merge-image-row span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.merge-image-row strong {
+  color: var(--ink);
+  font-weight: 760;
+}
+
+.merge-image-row span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .muted {
   color: var(--muted);
   font-size: 13px;
@@ -1163,6 +1220,7 @@ canvas {
   .inline-control,
   .two-columns,
   .image-row,
+  .merge-image-row,
   .condition-controls.three,
   .image-size-panel {
     grid-template-columns: 1fr;
