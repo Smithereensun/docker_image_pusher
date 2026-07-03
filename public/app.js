@@ -87,6 +87,49 @@ function init() {
   setupPdfTools();
   setupCryptoTool();
   setupMirrorTool();
+  enhanceNativeControls();
+}
+
+function enhanceNativeControls() {
+  $$('input[type="file"]').forEach((input) => {
+    if (input.dataset.enhancedFile === "true") return;
+
+    const control = document.createElement("label");
+    control.className = "file-control";
+
+    const action = document.createElement("span");
+    action.className = "file-control-action";
+    action.textContent = input.hasAttribute("webkitdirectory") ? "选择文件夹" : "选择文件";
+
+    const label = document.createElement("span");
+    label.className = "file-control-label";
+
+    input.classList.add("file-control-input");
+    input.dataset.enhancedFile = "true";
+    input.parentNode.insertBefore(control, input);
+    control.append(input, action, label);
+    updateFileControlLabel(input);
+    input.addEventListener("change", () => updateFileControlLabel(input));
+  });
+}
+
+function updateFileControlLabel(input) {
+  const label = input.closest(".file-control")?.querySelector(".file-control-label");
+  if (!label) return;
+
+  const files = [...input.files];
+  if (!files.length) {
+    label.textContent = input.hasAttribute("webkitdirectory") ? "未选择文件夹" : "未选择任何文件";
+    return;
+  }
+
+  if (input.hasAttribute("webkitdirectory")) {
+    const folderName = files[0]?.webkitRelativePath?.split("/")[0] || "已选择文件夹";
+    label.textContent = `${folderName} · ${files.length} 个文件`;
+    return;
+  }
+
+  label.textContent = files.length === 1 ? files[0].name : `已选择 ${files.length} 个文件`;
 }
 
 function setupNavigation() {
