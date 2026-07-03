@@ -4,3 +4,4 @@ duolabmeng666/paddlehub_ppocr:1.0
 stirlingtools/stirling-pdf:latest
 nginx
 redis
+mysql
