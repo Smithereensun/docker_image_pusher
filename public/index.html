@@ -3,99 +3,421 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>容器镜像转存台</title>
+    <title>在线工具箱</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main class="shell">
-      <section class="topbar" aria-label="项目状态">
-        <div>
-          <p class="eyebrow">网页控制台</p>
-          <h1>容器镜像转存台</h1>
-        </div>
-        <div class="status-pill" id="connectionStatus">未连接</div>
-      </section>
-
-      <section class="login-panel" id="loginPanel">
-        <div>
-          <h2>连接管理入口</h2>
-          <p>输入环境变量中配置的访问密码，系统会通过后端安全地修改仓库里的镜像列表。</p>
-        </div>
-        <form id="loginForm" class="login-form">
-          <label for="password">访问密码</label>
-          <div class="inline-control">
-            <input id="password" name="password" type="password" autocomplete="current-password" required />
-            <button type="submit">连接</button>
-          </div>
-        </form>
-      </section>
-
-      <section class="workspace is-hidden" id="workspace">
-        <div class="editor-header">
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="工具导航">
+        <div class="brand">
+          <span class="brand-mark">工</span>
           <div>
-            <p class="eyebrow" id="repoLabel">代码仓库</p>
-            <h2>镜像列表</h2>
-          </div>
-          <div class="toolbar">
-            <button class="secondary" id="refreshButton" type="button">刷新</button>
-            <button class="secondary" id="runButton" type="button">运行转存</button>
-            <button id="saveButton" type="button">保存并提交</button>
+            <strong>在线工具箱</strong>
+            <span>常用文件与文本工具</span>
           </div>
         </div>
+        <nav class="tool-nav">
+          <button class="nav-item is-active" type="button" data-tool="json">JSON 工具</button>
+          <button class="nav-item" type="button" data-tool="merge-images">图片合并</button>
+          <button class="nav-item" type="button" data-tool="id-card">身份证生成</button>
+          <button class="nav-item" type="button" data-tool="phone">手机号生成</button>
+          <button class="nav-item" type="button" data-tool="random-string">随机字符串</button>
+          <button class="nav-item" type="button" data-tool="password">随机密码</button>
+          <button class="nav-item" type="button" data-tool="image-base64">图片转 Base64</button>
+          <button class="nav-item" type="button" data-tool="image-resize">图片压缩放大</button>
+          <button class="nav-item" type="button" data-tool="pdf-images">PDF 转图片</button>
+          <button class="nav-item" type="button" data-tool="pdf-merge">PDF 合并</button>
+          <button class="nav-item" type="button" data-tool="folder-crypto">文件夹加密</button>
+          <button class="nav-item nav-lock" type="button" data-tool="mirror">镜像管理</button>
+        </nav>
+      </aside>
 
-        <div class="editor-grid">
-          <div class="editor-pane">
-            <textarea id="imagesEditor" spellcheck="false" aria-label="images.txt 内容"></textarea>
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Browser Tools</p>
+            <h1 id="pageTitle">JSON 工具</h1>
           </div>
-          <aside class="side-pane">
-            <div class="summary">
-              <span class="summary-value" id="imageCount">0</span>
-              <span class="summary-label">有效镜像</span>
+          <span class="status-pill" id="connectionStatus">公开工具免登录</span>
+        </header>
+
+        <section class="tool-panel is-active" data-panel="json">
+          <div class="panel-head">
+            <div>
+              <h2>JSON 格式化 / 压缩 / 树视图</h2>
+              <p>粘贴 JSON 后可格式化、压缩，或查看可折叠的层级结构。</p>
             </div>
-            <div class="hint">
-              <strong>格式示例</strong>
-              <code>nginx:1.25</code>
-              <code>--platform=linux/amd64 redis:7</code>
-              <code># 以井号开头的是注释</code>
+            <div class="toolbar">
+              <button type="button" id="jsonFormatButton">格式化</button>
+              <button class="secondary" type="button" id="jsonMinifyButton">压缩</button>
+              <button class="secondary" type="button" id="jsonCopyButton">复制</button>
+              <button class="secondary" type="button" id="jsonClearButton">清空</button>
             </div>
-            <div class="download-panel">
-              <div class="runs-head">
-                <strong>镜像包导出</strong>
-                <button class="secondary small-button" id="exportButton" type="button">生成镜像包</button>
+          </div>
+          <div class="split-grid">
+            <div class="field-block">
+              <label for="jsonInput">JSON 内容</label>
+              <textarea id="jsonInput" class="code-area" spellcheck="false" placeholder='{"name":"tools","enabled":true}'></textarea>
+            </div>
+            <div class="field-block">
+              <label>树视图</label>
+              <div class="tree-view" id="jsonTree">等待输入 JSON</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="tool-panel" data-panel="merge-images">
+          <div class="panel-head">
+            <div>
+              <h2>在线合并图片</h2>
+              <p>支持 JPG、PNG、SVG、WEBP，按上传顺序横向或纵向合并后下载。</p>
+            </div>
+            <div class="toolbar">
+              <button type="button" id="mergeImagesButton">生成图片</button>
+              <button class="secondary" type="button" id="downloadMergedImageButton" disabled>下载</button>
+            </div>
+          </div>
+          <div class="tool-grid">
+            <div class="control-card">
+              <label for="mergeImageFiles">选择图片</label>
+              <input id="mergeImageFiles" type="file" multiple accept="image/jpeg,image/png,image/svg+xml,image/webp" />
+              <div class="segmented" role="group" aria-label="合并方向">
+                <label><input type="radio" name="mergeDirection" value="vertical" checked /> 垂直</label>
+                <label><input type="radio" name="mergeDirection" value="horizontal" /> 水平</label>
               </div>
-              <div class="download-meta" id="downloadMeta">
-                选择需要导出的镜像，生成完成后可直接在浏览器下载。
+              <label for="mergeOutputType">导出格式</label>
+              <select id="mergeOutputType">
+                <option value="image/png">PNG</option>
+                <option value="image/webp">WEBP</option>
+                <option value="image/jpeg">JPG</option>
+              </select>
+              <div class="file-list" id="mergeImageList">尚未选择图片</div>
+            </div>
+            <div class="preview-panel">
+              <canvas id="mergeCanvas"></canvas>
+              <p id="mergeImageMeta">生成后在这里预览。</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="tool-panel" data-panel="id-card">
+          <div class="panel-head">
+            <div>
+              <h2>随机身份证号码生成器</h2>
+              <p>生成符合校验位规则的测试身份证号码。</p>
+            </div>
+            <button type="button" id="generateIdButton">生成</button>
+          </div>
+          <div class="generator-grid">
+            <div class="control-card">
+              <label for="idCount">生成数量</label>
+              <input id="idCount" type="number" min="1" max="200" value="10" />
+              <label for="idGender">性别</label>
+              <select id="idGender">
+                <option value="random">随机</option>
+                <option value="male">男</option>
+                <option value="female">女</option>
+              </select>
+              <label for="idBirthday">指定生日（可选）</label>
+              <input id="idBirthday" type="date" />
+            </div>
+            <textarea id="idOutput" class="result-area" readonly></textarea>
+          </div>
+        </section>
+
+        <section class="tool-panel" data-panel="phone">
+          <div class="panel-head">
+            <div>
+              <h2>在线手机号生成器</h2>
+              <p>生成常见中国大陆手机号段的测试号码。</p>
+            </div>
+            <button type="button" id="generatePhoneButton">生成</button>
+          </div>
+          <div class="generator-grid">
+            <div class="control-card">
+              <label for="phoneCount">生成数量</label>
+              <input id="phoneCount" type="number" min="1" max="500" value="20" />
+              <label for="phonePrefix">号段</label>
+              <select id="phonePrefix">
+                <option value="random">随机号段</option>
+                <option value="13">13x</option>
+                <option value="15">15x</option>
+                <option value="17">17x</option>
+                <option value="18">18x</option>
+                <option value="19">19x</option>
+              </select>
+            </div>
+            <textarea id="phoneOutput" class="result-area" readonly></textarea>
+          </div>
+        </section>
+
+        <section class="tool-panel" data-panel="random-string">
+          <div class="panel-head">
+            <div>
+              <h2>随机字符串生成器</h2>
+              <p>按字符集、长度和数量批量生成随机字符串。</p>
+            </div>
+            <button type="button" id="generateStringButton">生成</button>
+          </div>
+          <div class="generator-grid">
+            <div class="control-card">
+              <label for="stringLength">长度</label>
+              <input id="stringLength" type="number" min="1" max="10000" value="32" />
+              <label for="stringCount">数量</label>
+              <input id="stringCount" type="number" min="1" max="500" value="10" />
+              <div class="check-grid">
+                <label><input id="stringLower" type="checkbox" checked /> 小写字母</label>
+                <label><input id="stringUpper" type="checkbox" checked /> 大写字母</label>
+                <label><input id="stringDigits" type="checkbox" checked /> 数字</label>
+                <label><input id="stringSymbols" type="checkbox" /> 符号</label>
               </div>
-              <div class="export-list-head">
-                <span>本次打包镜像</span>
+            </div>
+            <textarea id="stringOutput" class="result-area" readonly></textarea>
+          </div>
+        </section>
+
+        <section class="tool-panel" data-panel="password">
+          <div class="panel-head">
+            <div>
+              <h2>在线随机密码生成器</h2>
+              <p>生成更适合账号初始化和临时凭据的随机密码。</p>
+            </div>
+            <button type="button" id="generatePasswordButton">生成</button>
+          </div>
+          <div class="generator-grid">
+            <div class="control-card">
+              <label for="passwordLength">密码长度</label>
+              <input id="passwordLength" type="number" min="6" max="128" value="16" />
+              <label for="passwordCount">数量</label>
+              <input id="passwordCount" type="number" min="1" max="200" value="10" />
+              <div class="check-grid">
+                <label><input id="passwordLower" type="checkbox" checked /> 小写字母</label>
+                <label><input id="passwordUpper" type="checkbox" checked /> 大写字母</label>
+                <label><input id="passwordDigits" type="checkbox" checked /> 数字</label>
+                <label><input id="passwordSymbols" type="checkbox" checked /> 符号</label>
+                <label><input id="passwordNoSimilar" type="checkbox" checked /> 排除易混字符</label>
+              </div>
+            </div>
+            <textarea id="passwordOutput" class="result-area" readonly></textarea>
+          </div>
+        </section>
+
+        <section class="tool-panel" data-panel="image-base64">
+          <div class="panel-head">
+            <div>
+              <h2>在线图片转 Base64</h2>
+              <p>选择图片后生成 Data URL，可复制或下载为文本。</p>
+            </div>
+            <div class="toolbar">
+              <button type="button" id="copyBase64Button">复制</button>
+              <button class="secondary" type="button" id="downloadBase64Button">下载文本</button>
+            </div>
+          </div>
+          <div class="split-grid">
+            <div class="control-card">
+              <label for="base64ImageFile">选择图片</label>
+              <input id="base64ImageFile" type="file" accept="image/*" />
+              <img id="base64Preview" class="image-preview" alt="图片预览" />
+            </div>
+            <textarea id="base64Output" class="result-area" readonly></textarea>
+          </div>
+        </section>
+
+        <section class="tool-panel" data-panel="image-resize">
+          <div class="panel-head">
+            <div>
+              <h2>图片压缩和扩大</h2>
+              <p>本地调整尺寸、导出格式和质量，适合压缩或放大图片。</p>
+            </div>
+            <div class="toolbar">
+              <button type="button" id="processImageButton">处理图片</button>
+              <button class="secondary" type="button" id="downloadProcessedImageButton" disabled>下载</button>
+            </div>
+          </div>
+          <div class="tool-grid">
+            <div class="control-card">
+              <label for="resizeImageFile">选择图片</label>
+              <input id="resizeImageFile" type="file" accept="image/*" />
+              <div class="two-columns">
                 <div>
-                  <button class="link-button" id="selectAllExportsButton" type="button">全选</button>
-                  <button class="link-button" id="clearExportsButton" type="button">清空</button>
+                  <label for="resizeWidth">宽度</label>
+                  <input id="resizeWidth" type="number" min="1" placeholder="自动" />
+                </div>
+                <div>
+                  <label for="resizeHeight">高度</label>
+                  <input id="resizeHeight" type="number" min="1" placeholder="自动" />
                 </div>
               </div>
-              <div id="exportImageList" class="export-image-list">暂无可选镜像</div>
-              <div id="downloadsList" class="downloads-list">暂无镜像包</div>
+              <label for="resizeScale">缩放比例</label>
+              <input id="resizeScale" type="number" min="1" max="500" value="100" />
+              <label for="resizeOutputType">导出格式</label>
+              <select id="resizeOutputType">
+                <option value="image/jpeg">JPG</option>
+                <option value="image/webp">WEBP</option>
+                <option value="image/png">PNG</option>
+              </select>
+              <label for="resizeQuality">质量：<span id="resizeQualityLabel">0.82</span></label>
+              <input id="resizeQuality" type="range" min="0.1" max="1" step="0.01" value="0.82" />
+              <p class="muted" id="resizeMeta">选择图片后会自动读取原始尺寸。</p>
             </div>
-            <div class="validation">
-              <div class="runs-head">
-                <strong>保存前检测</strong>
-                <button class="secondary small-button" id="validateButton" type="button">检测</button>
-              </div>
-              <div id="validationList" class="validation-list">保存前会自动检测公共镜像是否可拉取。</div>
+            <div class="preview-panel">
+              <canvas id="resizeCanvas"></canvas>
             </div>
-            <div class="runs">
-              <div class="runs-head">
-                <strong>最近运行</strong>
-                <button class="icon-button" id="runsRefreshButton" type="button" title="刷新运行记录">↻</button>
-              </div>
-              <div id="runsList" class="runs-list">暂无数据</div>
-            </div>
-          </aside>
-        </div>
-      </section>
+          </div>
+        </section>
 
-      <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    </main>
-    <script src="/app.js" type="module"></script>
+        <section class="tool-panel" data-panel="pdf-images">
+          <div class="panel-head">
+            <div>
+              <h2>PDF 转图片工具</h2>
+              <p>在浏览器内把 PDF 每页渲染为 PNG，并打包成 zip 下载。</p>
+            </div>
+            <button type="button" id="pdfToImagesButton">转换并下载</button>
+          </div>
+          <div class="tool-grid">
+            <div class="control-card">
+              <label for="pdfImageFile">选择 PDF</label>
+              <input id="pdfImageFile" type="file" accept="application/pdf" />
+              <label for="pdfImageScale">清晰度倍率</label>
+              <input id="pdfImageScale" type="number" min="1" max="4" step="0.5" value="2" />
+              <p class="muted">PDF 内容只在当前浏览器中处理，不会上传。</p>
+            </div>
+            <div class="log-panel" id="pdfImagesLog">等待选择 PDF。</div>
+          </div>
+        </section>
+
+        <section class="tool-panel" data-panel="pdf-merge">
+          <div class="panel-head">
+            <div>
+              <h2>在线合并 PDF</h2>
+              <p>按选择顺序合并多个 PDF 文件，生成一个新 PDF。</p>
+            </div>
+            <button type="button" id="mergePdfButton">合并并下载</button>
+          </div>
+          <div class="tool-grid">
+            <div class="control-card">
+              <label for="mergePdfFiles">选择 PDF</label>
+              <input id="mergePdfFiles" type="file" multiple accept="application/pdf" />
+              <p class="muted">如需调整顺序，请按需要的顺序重新选择文件。</p>
+            </div>
+            <div class="file-list" id="mergePdfList">尚未选择 PDF。</div>
+          </div>
+        </section>
+
+        <section class="tool-panel" data-panel="folder-crypto">
+          <div class="panel-head">
+            <div>
+              <h2>文件夹加密 / 解密</h2>
+              <p>选择文件夹生成加密包；解密后下载 zip。网页不能直接覆盖本地文件夹。</p>
+            </div>
+          </div>
+          <div class="tool-grid">
+            <div class="control-card">
+              <h3>加密文件夹</h3>
+              <label for="folderInput">选择文件夹</label>
+              <input id="folderInput" type="file" webkitdirectory multiple />
+              <label for="folderPassword">加密密码</label>
+              <input id="folderPassword" type="password" autocomplete="new-password" />
+              <button type="button" id="encryptFolderButton">生成加密包</button>
+            </div>
+            <div class="control-card">
+              <h3>解密加密包</h3>
+              <label for="encryptedFileInput">选择 .enc 文件</label>
+              <input id="encryptedFileInput" type="file" accept=".enc,application/octet-stream" />
+              <label for="decryptPassword">解密密码</label>
+              <input id="decryptPassword" type="password" autocomplete="current-password" />
+              <button type="button" id="decryptFolderButton">解密为 zip</button>
+            </div>
+          </div>
+          <div class="log-panel" id="cryptoLog">文件不会上传服务器，所有加密解密都在浏览器本地完成。</div>
+        </section>
+
+        <section class="tool-panel" data-panel="mirror">
+          <div class="panel-head">
+            <div>
+              <h2>镜像管理与导出</h2>
+              <p>这个功能会读写 GitHub 仓库并生成镜像包，因此需要访问密码。</p>
+            </div>
+            <span class="status-pill" id="mirrorStatus">未登录</span>
+          </div>
+
+          <div class="login-panel" id="loginPanel">
+            <div>
+              <h3>输入访问密码</h3>
+              <p>密码只保存在当前浏览器，用来调用 Cloudflare Functions 后端。</p>
+            </div>
+            <form class="login-form" id="loginForm">
+              <label for="password">访问密码</label>
+              <div class="inline-control">
+                <input id="password" type="password" autocomplete="current-password" placeholder="Cloudflare 环境变量 APP_PASSWORD" />
+                <button type="submit">进入</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="workspace is-hidden" id="workspace">
+            <div class="editor-header">
+              <div>
+                <h3>镜像列表</h3>
+                <p id="repoLabel">正在读取仓库信息...</p>
+              </div>
+              <div class="toolbar">
+                <button class="secondary" type="button" id="refreshButton">刷新</button>
+                <button class="secondary" type="button" id="validateButton">检测</button>
+                <button type="button" id="saveButton">保存并提交</button>
+                <button class="secondary" type="button" id="runButton">手动转存</button>
+              </div>
+            </div>
+            <div class="editor-grid">
+              <div class="editor-pane">
+                <label for="imagesEditor">images.txt</label>
+                <textarea id="imagesEditor" class="code-area" spellcheck="false"></textarea>
+              </div>
+              <aside class="side-pane">
+                <div class="summary">
+                  <span class="summary-value" id="imageCount">0</span>
+                  <span class="summary-label">有效镜像</span>
+                </div>
+                <div class="validation">
+                  <div class="runs-head">
+                    <strong>保存前检测</strong>
+                  </div>
+                  <div class="validation-list" id="validationList">保存前会检测 Docker Hub 公共镜像是否可拉取。</div>
+                </div>
+                <div class="download-panel">
+                  <div class="runs-head">
+                    <strong>生成镜像包</strong>
+                    <button class="small-button" type="button" id="exportButton">生成</button>
+                  </div>
+                  <p class="download-meta" id="downloadMeta">选择要导出的镜像。</p>
+                  <div class="export-list-head">
+                    <span>镜像选择</span>
+                    <div>
+                      <button class="link-button" type="button" id="selectAllExportsButton">全选</button>
+                      <button class="link-button" type="button" id="clearExportsButton">清空</button>
+                    </div>
+                  </div>
+                  <div class="export-image-list" id="exportImageList">暂无可选镜像</div>
+                  <div class="runs-head">
+                    <strong>下载记录</strong>
+                    <button class="small-button secondary" type="button" id="downloadsRefreshButton">刷新</button>
+                  </div>
+                  <div class="downloads-list" id="downloadsList">暂无镜像包</div>
+                </div>
+                <div class="runs">
+                  <div class="runs-head">
+                    <strong>最近转存任务</strong>
+                    <button class="small-button secondary" type="button" id="runsRefreshButton">刷新</button>
+                  </div>
+                  <div class="runs-list" id="runsList">暂无数据</div>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/app.js"></script>
   </body>
 </html>
