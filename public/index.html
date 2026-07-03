@@ -23,6 +23,7 @@
           <button class="nav-item" type="button" data-tool="phone">手机号生成</button>
           <button class="nav-item" type="button" data-tool="random-string">随机字符串</button>
           <button class="nav-item" type="button" data-tool="password">随机密码</button>
+          <button class="nav-item" type="button" data-tool="signature">手写签名</button>
           <button class="nav-item" type="button" data-tool="image-base64">图片转 Base64</button>
           <button class="nav-item" type="button" data-tool="image-resize">图片压缩放大</button>
           <button class="nav-item" type="button" data-tool="pdf-images">PDF 转图片</button>
@@ -230,6 +231,68 @@
               </div>
             </div>
             <textarea id="passwordOutput" class="result-area" readonly></textarea>
+          </div>
+        </section>
+
+        <section class="tool-panel" data-panel="signature">
+          <div class="panel-head">
+            <div>
+              <h2>在线手写签名工具</h2>
+              <p>输入姓名生成透明背景签名，或直接在画布上手写并下载 PNG。</p>
+            </div>
+            <div class="toolbar">
+              <button type="button" id="generateSignatureButton">生成签名</button>
+              <button class="secondary" type="button" id="downloadSignatureButton">下载 PNG</button>
+            </div>
+          </div>
+          <div class="tool-grid">
+            <div class="control-card">
+              <div class="condition-group">
+                <span class="condition-label">输入生成</span>
+                <label for="signatureName">姓名或首字母</label>
+                <input id="signatureName" type="text" value="张三" maxlength="40" />
+                <label for="signatureStyle">签名风格</label>
+                <select id="signatureStyle">
+                  <option value="flowing">流畅手写</option>
+                  <option value="business">商务签名</option>
+                  <option value="bold">醒目艺术</option>
+                  <option value="minimal">简洁细线</option>
+                </select>
+                <div class="two-columns">
+                  <div>
+                    <label for="signatureColor">颜色</label>
+                    <input id="signatureColor" type="color" value="#111827" />
+                  </div>
+                  <div>
+                    <label for="signatureSize">字号：<span id="signatureSizeLabel">88</span></label>
+                    <input id="signatureSize" type="range" min="42" max="140" value="88" />
+                  </div>
+                </div>
+                <label for="signatureSlant">倾斜：<span id="signatureSlantLabel">-8</span></label>
+                <input id="signatureSlant" type="range" min="-24" max="18" value="-8" />
+                <label class="signature-checkbox"><input id="signatureUnderline" type="checkbox" checked /> 添加收笔线</label>
+              </div>
+              <div class="condition-group">
+                <span class="condition-label">手写模式</span>
+                <p class="muted">鼠标、触控板或手指都可以直接书写。</p>
+                <label for="drawStrokeWidth">笔迹粗细：<span id="drawStrokeWidthLabel">4</span></label>
+                <input id="drawStrokeWidth" type="range" min="1" max="14" value="4" />
+                <button class="secondary" type="button" id="clearDrawSignatureButton">清空手写</button>
+              </div>
+            </div>
+            <div class="signature-workspace">
+              <div class="signature-tabs" role="group" aria-label="签名模式">
+                <button class="secondary is-active" type="button" data-signature-mode="typed">生成签名</button>
+                <button class="secondary" type="button" data-signature-mode="draw">手写签名</button>
+              </div>
+              <div class="signature-stage is-active" data-signature-stage="typed">
+                <canvas id="signatureCanvas" width="900" height="320"></canvas>
+              </div>
+              <div class="signature-stage" data-signature-stage="draw">
+                <canvas id="drawSignatureCanvas" width="900" height="320"></canvas>
+              </div>
+              <p class="muted" id="signatureMeta">透明背景 PNG，适合放到 Word、PDF、图片或邮件签名里。</p>
+            </div>
           </div>
         </section>
 

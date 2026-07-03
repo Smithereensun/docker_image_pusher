@@ -75,6 +75,9 @@ const state = {
   processedImageUrl: "",
   resizeSource: null,
   resizeOriginalBytes: 0,
+  signatureMode: "typed",
+  drawingSignature: false,
+  lastSignaturePoint: null,
   connectingMirror: false,
 };
 
@@ -119,6 +122,7 @@ function init() {
   setupJsonTool();
   setupImageMergeTool();
   setupGenerators();
+  setupSignatureTool();
   setupBase64Tool();
   setupResizeTool();
   setupPdfTools();
@@ -334,6 +338,231 @@ function setupGenerators() {
     const count = readNumber("#passwordCount", 1, 200, 10);
     $("#passwordOutput").value = Array.from({ length: count }, () => createPassword(normalizedSets, length)).join("\n");
   });
+}
+
+function setupSignatureTool() {
+  const signatureInputs = ["#signatureName", "#signatureStyle", "#signatureColor", "#signatureSize", "#signatureSlant", "#signatureUnderline"];
+  signatureInputs.forEach((selector) => {
+    const input = $(selector);
+    input.addEventListener("input", () => {
+      updateSignatureLabels();
+      renderTypedSignature();
+    });
+    input.addEventListener("change", () => {
+      updateSignatureLabels();
+      renderTypedSignature();
+    });
+  });
+
+  $("#drawStrokeWidth").addEventListener("input", () => {
+    $("#drawStrokeWidthLabel").textContent = $("#drawStrokeWidth").value;
+  });
+  $("#generateSignatureButton").addEventListener("click", () => renderTypedSignature(true));
+  $("#downloadSignatureButton").addEventListener("click", () => downloadSignature());
+  $("#clearDrawSignatureButton").addEventListener("click", () => clearDrawSignature());
+  $$("[data-signature-mode]").forEach((button) => {
+    button.addEventListener("click", () => setSignatureMode(button.dataset.signatureMode));
+  });
+
+  setupDrawSignatureCanvas();
+  updateSignatureLabels();
+  renderTypedSignature();
+  clearDrawSignature(false);
+}
+
+function updateSignatureLabels() {
+  $("#signatureSizeLabel").textContent = $("#signatureSize").value;
+  $("#signatureSlantLabel").textContent = $("#signatureSlant").value;
+  $("#drawStrokeWidthLabel").textContent = $("#drawStrokeWidth").value;
+}
+
+function setSignatureMode(mode) {
+  state.signatureMode = mode;
+  $$("[data-signature-mode]").forEach((button) => button.classList.toggle("is-active", button.dataset.signatureMode === mode));
+  $$("[data-signature-stage]").forEach((stage) => stage.classList.toggle("is-active", stage.dataset.signatureStage === mode));
+  $("#signatureMeta").textContent = mode === "typed" ? "透明背景 PNG，适合放到 Word、PDF、图片或邮件签名里。" : "手写内容只保存在当前浏览器画布中，不会上传。";
+}
+
+function renderTypedSignature(showToastAfter = false) {
+  const canvas = $("#signatureCanvas");
+  const ctx = canvas.getContext("2d");
+  const name = ($("#signatureName").value.trim() || "签名").slice(0, 40);
+  const color = $("#signatureColor").value;
+  const size = Number($("#signatureSize").value);
+  const slant = Number($("#signatureSlant").value);
+  const style = signatureStyleConfig($("#signatureStyle").value);
+  const dpr = window.devicePixelRatio || 1;
+  const cssWidth = 900;
+  const cssHeight = 320;
+  canvas.width = cssWidth * dpr;
+  canvas.height = cssHeight * dpr;
+  canvas.style.width = "100%";
+  canvas.style.height = "auto";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssWidth, cssHeight);
+  ctx.save();
+  ctx.translate(cssWidth / 2, cssHeight / 2 + style.yOffset);
+  ctx.transform(1, 0, Math.tan((slant * Math.PI) / 180), 1, 0, 0);
+  ctx.font = `${style.weight} ${size}px ${style.font}`;
+  ctx.fillStyle = color;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.shadowColor = "rgba(15, 23, 42, 0.08)";
+  ctx.shadowBlur = style.shadow;
+  ctx.shadowOffsetY = 2;
+  if (style.letterSpacing) {
+    drawSpacedText(ctx, name, 0, 0, style.letterSpacing);
+  } else {
+    ctx.fillText(name, 0, 0);
+  }
+  ctx.restore();
+
+  if ($("#signatureUnderline").checked) {
+    drawSignatureUnderline(ctx, color, cssWidth, cssHeight, style);
+  }
+
+  if (showToastAfter) showToast("签名已生成");
+}
+
+function signatureStyleConfig(value) {
+  const styles = {
+    flowing: {
+      font: '"STXingkai", "Kaiti SC", "KaiTi", "Brush Script MT", cursive',
+      weight: 500,
+      shadow: 0,
+      yOffset: -4,
+      letterSpacing: 8,
+      underline: 0.58,
+    },
+    business: {
+      font: '"Kaiti SC", "KaiTi", "STKaiti", "Times New Roman", serif',
+      weight: 700,
+      shadow: 0,
+      yOffset: -2,
+      letterSpacing: 4,
+      underline: 0.5,
+    },
+    bold: {
+      font: '"STXingkai", "Kaiti SC", "KaiTi", cursive',
+      weight: 800,
+      shadow: 1,
+      yOffset: -2,
+      letterSpacing: 7,
+      underline: 0.66,
+    },
+    minimal: {
+      font: '"Kaiti SC", "KaiTi", "Songti SC", serif',
+      weight: 400,
+      shadow: 0,
+      yOffset: 0,
+      letterSpacing: 5,
+      underline: 0.42,
+    },
+  };
+  return styles[value] || styles.flowing;
+}
+
+function drawSpacedText(ctx, text, x, y, spacing) {
+  const charsInText = [...text];
+  const widths = charsInText.map((char) => ctx.measureText(char).width);
+  const total = widths.reduce((sum, width) => sum + width, 0) + spacing * Math.max(0, charsInText.length - 1);
+  let cursor = x - total / 2;
+  charsInText.forEach((char, index) => {
+    ctx.fillText(char, cursor + widths[index] / 2, y);
+    cursor += widths[index] + spacing;
+  });
+}
+
+function drawSignatureUnderline(ctx, color, width, height, style) {
+  const y = height * 0.68;
+  const start = width * 0.22;
+  const end = width * 0.78;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(2, Number($("#signatureSize").value) / 24);
+  ctx.lineCap = "round";
+  ctx.globalAlpha = style.underline;
+  ctx.beginPath();
+  ctx.moveTo(start, y);
+  ctx.bezierCurveTo(width * 0.38, y + 18, width * 0.55, y + 8, end, y - 10);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function setupDrawSignatureCanvas() {
+  const canvas = $("#drawSignatureCanvas");
+  const ctx = canvas.getContext("2d");
+  const resetSize = () => {
+    const snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = 900 * dpr;
+    canvas.height = 320 * dpr;
+    canvas.style.width = "100%";
+    canvas.style.height = "auto";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (snapshot.width && snapshot.height) {
+      try {
+        ctx.putImageData(snapshot, 0, 0);
+      } catch {
+        clearDrawSignature(false);
+      }
+    }
+  };
+  resetSize();
+  canvas.addEventListener("pointerdown", (event) => {
+    state.drawingSignature = true;
+    state.lastSignaturePoint = signaturePointer(canvas, event);
+    canvas.setPointerCapture(event.pointerId);
+  });
+  canvas.addEventListener("pointermove", (event) => {
+    if (!state.drawingSignature) return;
+    const point = signaturePointer(canvas, event);
+    drawSignatureStroke(state.lastSignaturePoint, point);
+    state.lastSignaturePoint = point;
+  });
+  canvas.addEventListener("pointerup", () => {
+    state.drawingSignature = false;
+    state.lastSignaturePoint = null;
+  });
+  canvas.addEventListener("pointercancel", () => {
+    state.drawingSignature = false;
+    state.lastSignaturePoint = null;
+  });
+}
+
+function signaturePointer(canvas, event) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: ((event.clientX - rect.left) / rect.width) * 900,
+    y: ((event.clientY - rect.top) / rect.height) * 320,
+  };
+}
+
+function drawSignatureStroke(from, to) {
+  const canvas = $("#drawSignatureCanvas");
+  const ctx = canvas.getContext("2d");
+  ctx.save();
+  ctx.strokeStyle = $("#signatureColor").value;
+  ctx.lineWidth = Number($("#drawStrokeWidth").value);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(from.x, from.y);
+  ctx.lineTo(to.x, to.y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function clearDrawSignature(showToastAfter = true) {
+  const canvas = $("#drawSignatureCanvas");
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (showToastAfter) showToast("手写画布已清空");
+}
+
+function downloadSignature() {
+  const source = state.signatureMode === "draw" ? $("#drawSignatureCanvas") : $("#signatureCanvas");
+  downloadUrl(source.toDataURL("image/png"), state.signatureMode === "draw" ? "handwritten-signature.png" : "signature.png");
 }
 
 function setupIdGeneratorControls() {

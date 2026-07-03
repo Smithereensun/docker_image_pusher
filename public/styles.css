@@ -129,6 +129,12 @@ input[type="radio"] {
   accent-color: var(--brand);
 }
 
+input[type="color"] {
+  min-height: 44px;
+  padding: 4px;
+  cursor: pointer;
+}
+
 textarea {
   min-height: 420px;
   resize: vertical;
@@ -663,6 +669,79 @@ p {
   color: var(--ink);
   font-size: 14px;
   overflow-wrap: anywhere;
+}
+
+.signature-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 10px;
+  color: var(--ink);
+}
+
+.signature-workspace {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 16px;
+}
+
+.signature-tabs {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-self: start;
+}
+
+.signature-tabs button {
+  min-height: 42px;
+}
+
+.signature-tabs button.is-active {
+  border-color: rgba(13, 107, 115, 0.24);
+  background: rgba(13, 107, 115, 0.12);
+  color: var(--brand-strong);
+}
+
+.signature-stage {
+  display: none;
+  min-height: 300px;
+  align-items: center;
+  justify-items: center;
+  border: 1px solid #dce6ed;
+  border-radius: 8px;
+  background:
+    linear-gradient(45deg, #f4f7f9 25%, transparent 25%),
+    linear-gradient(-45deg, #f4f7f9 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #f4f7f9 75%),
+    linear-gradient(-45deg, transparent 75%, #f4f7f9 75%),
+    #fff;
+  background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+  background-size: 24px 24px;
+  padding: 18px;
+}
+
+.signature-stage.is-active {
+  display: grid;
+}
+
+.signature-stage canvas {
+  width: 100%;
+  max-width: 900px;
+  aspect-ratio: 45 / 16;
+  max-height: none;
+  border-radius: 8px;
+  background: transparent;
+  touch-action: none;
+  box-shadow: none;
 }
 
 .preview-panel {
