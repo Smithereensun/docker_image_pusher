@@ -5,3 +5,4 @@ stirlingtools/stirling-pdf:latest
 # xujin/moss-web:latest
 # 上方镜像当前无法公开拉取：pull access denied / repository does not exist
 nginx
+redis
