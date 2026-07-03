@@ -414,7 +414,11 @@ function setupGenerators() {
     const count = readNumber("#phoneCount", 1, 1000, 100);
     const prefixes = selectedPhonePrefixes();
     const region = $("#phoneRegion").value;
-    $("#phoneOutput").value = ["手机号\t运营商\t归属地省份", ...Array.from({ length: count }, () => createPhone(prefixes, region))].join("\n");
+    const mode = document.querySelector('input[name="phoneOutputMode"]:checked')?.value || "number";
+    const records = Array.from({ length: count }, () => createPhone(prefixes, region));
+    $("#phoneOutput").value = mode === "full"
+      ? ["手机号\t运营商\t归属地省份", ...records.map((item) => `${item.number}\t${item.carrier}\t${item.place}`)].join("\n")
+      : records.map((item) => item.number).join("\n");
   });
   $("#generateStringButton").addEventListener("click", () => {
     const pool = buildPool([
@@ -1783,7 +1787,11 @@ function createPhone(prefixes, region) {
   const prefix = pick(prefixes);
   const carrier = phonePrefixGroups.find((group) => group.prefixes.includes(prefix))?.carrier || "未知";
   const place = region || pick(idRegions).name;
-  return `${prefix}${String(randomInt(0, 99999999)).padStart(8, "0")}\t${carrier}\t${place}`;
+  return {
+    number: `${prefix}${String(randomInt(0, 99999999)).padStart(8, "0")}`,
+    carrier,
+    place,
+  };
 }
 
 function createPassword(sets, length) {
