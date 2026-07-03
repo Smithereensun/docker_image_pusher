@@ -1002,6 +1002,11 @@ function setupPdfTools() {
   $("#mergePdfFiles").addEventListener("change", (event) => renderFileList(event.target.files, $("#mergePdfList")));
   $("#mergePdfButton").addEventListener("click", mergePdfs);
   $("#pdfToImagesButton").addEventListener("click", pdfToImages);
+  $("#imagesToPdfFiles").addEventListener("change", (event) => renderFileList(event.target.files, $("#imagesToPdfList")));
+  $("#imagesToPdfMargin").addEventListener("input", () => {
+    $("#imagesToPdfMarginLabel").textContent = $("#imagesToPdfMargin").value;
+  });
+  $("#imagesToPdfButton").addEventListener("click", imagesToPdf);
 }
 
 async function mergePdfs() {
@@ -1055,6 +1060,89 @@ async function pdfToImages() {
     log.textContent = error.message;
     showToast(`PDF 转图片失败：${error.message}`, true);
   }
+}
+
+async function imagesToPdf() {
+  const files = [...$("#imagesToPdfFiles").files];
+  const log = $("#pdfImagesLog");
+  if (!files.length) return showToast("请先选择图片", true);
+
+  try {
+    log.textContent = "正在加载 PDF 处理库...";
+    const { PDFDocument } = await import(CDN.pdfLib);
+    const pdf = await PDFDocument.create();
+    const pageMode = $("#imagesToPdfPageMode").value;
+    const margin = readNumber("#imagesToPdfMargin", 0, 72, 24);
+
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      log.textContent = `正在处理第 ${index + 1}/${files.length} 张图片...`;
+      const source = await prepareImageForPdf(file);
+      const image = source.type === "image/png"
+        ? await pdf.embedPng(source.bytes)
+        : await pdf.embedJpg(source.bytes);
+      const imageWidth = image.width;
+      const imageHeight = image.height;
+      const pageSize = pdfPageSizeForImage(imageWidth, imageHeight, pageMode, margin);
+      const page = pdf.addPage([pageSize.width, pageSize.height]);
+      const placement = imagePlacement(imageWidth, imageHeight, pageSize.width, pageSize.height, pageMode, margin);
+      page.drawImage(image, placement);
+    }
+
+    log.textContent = "正在生成 PDF...";
+    const bytes = await pdf.save();
+    downloadBlob(new Blob([bytes], { type: "application/pdf" }), "images.pdf");
+    log.textContent = `完成，已将 ${files.length} 张图片生成 PDF。`;
+    showToast("图片 PDF 已生成");
+  } catch (error) {
+    log.textContent = error.message;
+    showToast(`图片转 PDF 失败：${error.message}`, true);
+  }
+}
+
+async function prepareImageForPdf(file) {
+  if (file.type === "image/jpeg" || /\.(jpe?g)$/i.test(file.name)) {
+    return { bytes: await file.arrayBuffer(), type: "image/jpeg" };
+  }
+
+  const image = await loadImageFile(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = image.width;
+  canvas.height = image.height;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(image.image, 0, 0);
+  URL.revokeObjectURL(image.url);
+  const blob = await canvasToBlob(canvas, "image/png");
+  return { bytes: await blob.arrayBuffer(), type: "image/png" };
+}
+
+function pdfPageSizeForImage(imageWidth, imageHeight, mode, margin) {
+  if (mode === "image") {
+    return { width: imageWidth, height: imageHeight };
+  }
+  const portrait = imageHeight >= imageWidth;
+  return portrait ? { width: 595.28, height: 841.89 } : { width: 841.89, height: 595.28 };
+}
+
+function imagePlacement(imageWidth, imageHeight, pageWidth, pageHeight, mode, margin) {
+  if (mode === "image") {
+    return { x: 0, y: 0, width: pageWidth, height: pageHeight };
+  }
+
+  const availableWidth = Math.max(1, pageWidth - margin * 2);
+  const availableHeight = Math.max(1, pageHeight - margin * 2);
+  const scale = mode === "a4-fill"
+    ? Math.max(availableWidth / imageWidth, availableHeight / imageHeight)
+    : Math.min(availableWidth / imageWidth, availableHeight / imageHeight);
+  const width = imageWidth * scale;
+  const height = imageHeight * scale;
+  return {
+    x: (pageWidth - width) / 2,
+    y: (pageHeight - height) / 2,
+    width,
+    height,
+  };
 }
 
 function setupCryptoTool() {

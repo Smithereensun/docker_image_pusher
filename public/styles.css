@@ -781,6 +781,11 @@ canvas {
   line-height: 1.65;
 }
 
+.pdf-log-wide {
+  grid-column: 1 / -1;
+  min-height: 96px;
+}
+
 .file-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
