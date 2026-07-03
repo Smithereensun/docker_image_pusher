@@ -68,6 +68,12 @@ button:disabled {
   color: var(--ink);
 }
 
+.small-button {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
 .shell {
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
@@ -235,6 +241,7 @@ textarea:focus {
 
 .summary,
 .hint,
+.validation,
 .runs {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -287,6 +294,44 @@ textarea:focus {
   gap: 8px;
   color: var(--muted);
   font-size: 14px;
+}
+
+.validation-list {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.validation-item {
+  display: grid;
+  gap: 3px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.validation-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.validation-item strong {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+
+.validation-item.error strong {
+  color: var(--danger);
+}
+
+.validation-item.ok strong {
+  color: var(--ok);
+}
+
+.validation-meta {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .run-item {
