@@ -1235,8 +1235,14 @@ function setupMirrorTool() {
     renderDownloadMeta();
   });
   elements.downloadsList.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-download-url]");
-    if (button) downloadArtifact(button.dataset.downloadUrl);
+    const downloadButton = event.target.closest("[data-download-url]");
+    if (downloadButton) {
+      downloadArtifact(downloadButton.dataset.downloadUrl, downloadButton.dataset.downloadFilename, downloadButton);
+      return;
+    }
+
+    const deleteButton = event.target.closest("[data-delete-artifact]");
+    if (deleteButton) deleteArtifact(deleteButton.dataset.deleteArtifact);
   });
   elements.addImageRowButton.addEventListener("click", () => addImageRow());
   elements.imageSearchInput.addEventListener("input", () => renderImageRows());
@@ -1503,17 +1509,93 @@ function imageRowKind(text) {
   return { label: "镜像", className: "is-image" };
 }
 
-async function downloadArtifact(path) {
+async function downloadArtifact(path, filename = "docker-images.zip", trigger) {
+  const item = trigger?.closest(".download-item");
+  const progress = item?.querySelector("[data-download-progress]");
+  const progressFill = item?.querySelector("[data-download-progress-fill]");
+  const progressText = item?.querySelector("[data-download-progress-text]");
+
   try {
     setApiBusy(true);
+    updateDownloadProgress(progress, progressFill, progressText, { loaded: 0, total: 0, started: true });
     const response = await fetch(path, { headers: { authorization: `Bearer ${state.password}` } });
     if (!response.ok) {
       const text = await response.text();
       const data = text ? parseJson(text) : {};
       throw new Error(data.error || text || `下载失败：${response.status}`);
     }
-    downloadBlob(await response.blob(), "镜像包.zip");
+
+    const blob = await responseToBlobWithProgress(response, (loaded, total) => {
+      updateDownloadProgress(progress, progressFill, progressText, { loaded, total, started: true });
+    });
+    updateDownloadProgress(progress, progressFill, progressText, { loaded: blob.size, total: blob.size, started: true });
+    downloadBlob(blob, safeDownloadFilename(filename));
     showToast("镜像包开始下载");
+  } catch (error) {
+    updateDownloadProgress(progress, progressFill, progressText, { error: error.message });
+    showToast(error.message, true);
+  } finally {
+    setApiBusy(false);
+  }
+}
+
+async function responseToBlobWithProgress(response, onProgress) {
+  const total = Number(response.headers.get("content-length")) || 0;
+  if (!response.body) {
+    const blob = await response.blob();
+    onProgress(blob.size, blob.size);
+    return blob;
+  }
+
+  const reader = response.body.getReader();
+  const chunks = [];
+  let loaded = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    loaded += value.length;
+    onProgress(loaded, total);
+  }
+
+  return new Blob(chunks, { type: response.headers.get("content-type") || "application/zip" });
+}
+
+function updateDownloadProgress(progress, fill, text, status) {
+  if (!progress || !fill || !text) return;
+
+  progress.hidden = false;
+  progress.classList.toggle("is-indeterminate", status.started && !status.total && !status.error);
+
+  if (status.error) {
+    fill.style.width = "100%";
+    text.textContent = `下载失败：${status.error}`;
+    progress.classList.remove("is-indeterminate");
+    progress.classList.add("is-error");
+    return;
+  }
+
+  progress.classList.remove("is-error");
+  if (status.total) {
+    const percent = Math.min(100, Math.round((status.loaded / status.total) * 100));
+    fill.style.width = `${percent}%`;
+    text.textContent = `下载中 ${percent}% · ${formatBytes(status.loaded)} / ${formatBytes(status.total)}`;
+    if (percent >= 100) text.textContent = `下载完成 · ${formatBytes(status.loaded)}`;
+    return;
+  }
+
+  fill.style.width = "42%";
+  text.textContent = status.loaded ? `下载中 · 已接收 ${formatBytes(status.loaded)}` : "准备下载...";
+}
+
+async function deleteArtifact(artifactId) {
+  if (!artifactId || !confirm("确定删除这个镜像包下载记录吗？删除后需要重新生成才能再次下载。")) return;
+
+  try {
+    setApiBusy(true);
+    await api(`/api/export-artifacts/${encodeURIComponent(artifactId)}`, { method: "DELETE" });
+    showToast("已删除镜像包");
+    await loadDownloads();
   } catch (error) {
     showToast(error.message, true);
   } finally {
@@ -1577,7 +1659,25 @@ function renderDownloads(runs, artifacts) {
   }
   const runStatus = latestRun ? latestRun.conclusion || latestRun.status || "unknown" : "";
   const artifactItems = availableArtifacts
-    .map((artifact) => `<div class="download-item"><button class="link-button" type="button" data-download-url="${escapeHtml(artifact.download_url)}">下载镜像包</button><span class="run-meta">${formatBytes(artifact.size_in_bytes)} · ${escapeHtml(new Date(artifact.created_at).toLocaleString())}</span></div>`)
+    .map((artifact) => {
+      const filename = artifact.filename || artifactDownloadFilename(artifact.name);
+      return `
+        <div class="download-item">
+          <div class="download-info">
+            <strong>${escapeHtml(filename)}</strong>
+            <span class="run-meta">${formatBytes(artifact.size_in_bytes)} · ${escapeHtml(new Date(artifact.created_at).toLocaleString())}</span>
+            <div class="download-progress" data-download-progress hidden>
+              <span class="download-progress-bar"><span data-download-progress-fill></span></span>
+              <span class="download-progress-text" data-download-progress-text>准备下载...</span>
+            </div>
+          </div>
+          <div class="download-actions">
+            <button class="small-button secondary" type="button" data-download-url="${escapeHtml(artifact.download_url)}" data-download-filename="${escapeHtml(filename)}">下载</button>
+            <button class="small-button danger" type="button" data-delete-artifact="${escapeHtml(artifact.id)}">删除</button>
+          </div>
+        </div>
+      `;
+    })
     .join("");
   elements.downloadsList.innerHTML = `
     ${latestRun ? `<div class="download-item"><a href="${escapeHtml(latestRun.html_url)}" target="_blank" rel="noreferrer">导出任务 #${escapeHtml(latestRun.run_number)} ${escapeHtml(formatRunStatus(runStatus))}</a><span class="run-meta">${escapeHtml(formatRunEvent(latestRun.event))} · ${escapeHtml(new Date(latestRun.created_at).toLocaleString())}</span></div>` : ""}
@@ -1911,6 +2011,25 @@ function exportEntryKey(entry) {
 function parsePlatform(line) {
   const match = String(line).match(/(?:^|\s)--platform(?:=|\s+)(\S+)/);
   return match ? match[1] : "";
+}
+
+function artifactDownloadFilename(name) {
+  const safeName = String(name || "docker-images")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 120);
+  return `${safeName || "docker-images"}.zip`;
+}
+
+function safeDownloadFilename(filename) {
+  return String(filename || "docker-images.zip")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 124) || "docker-images.zip";
 }
 
 function formatBytes(value) {

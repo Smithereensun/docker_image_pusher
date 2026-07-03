@@ -35,6 +35,7 @@ jobs:
         run: sudo service docker restart
 
       - name: 拉取阿里云镜像并打包
+        id: package
         run: |
           set -euo pipefail
 
@@ -42,6 +43,19 @@ jobs:
 
           printf '%s' '${{ inputs.images_b64 }}' | base64 -d > selected-images.txt
           image_list_file="selected-images.txt"
+          mapfile -t selected_images < <(awk 'NF && $1 !~ /^#/ { print $NF }' "$image_list_file")
+          first_image="${selected_images[0]}"
+          image_count="${#selected_images[@]}"
+          safe_label=$(printf '%s' "$first_image" | sed -E 's/[^A-Za-z0-9._-]+/-/g; s/^-+//; s/-+$//; s/-+/-/g' | cut -c1-70)
+          if [ -z "$safe_label" ]; then
+            safe_label="selected"
+          fi
+          if [ "$image_count" -gt 1 ]; then
+            artifact_name="docker-images-${safe_label}-plus-$((image_count - 1))"
+          else
+            artifact_name="docker-images-${safe_label}"
+          fi
+          echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
 
           declare -A duplicate_images
           declare -A temp_map
@@ -132,6 +146,6 @@ jobs:
       - name: 上传镜像包
         uses: actions/upload-artifact@v4
         with:
-          name: docker-images
+          name: ${{ steps.package.outputs.artifact_name }}
           path: export/
           retention-days: 7

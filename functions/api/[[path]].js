@@ -58,6 +58,11 @@ export async function onRequest(context) {
       return await downloadExportArtifact(env, artifactMatch[1]);
     }
 
+    const artifactDeleteMatch = route.match(/^export-artifacts\/(\d+)$/);
+    if (request.method === "DELETE" && artifactDeleteMatch) {
+      return await deleteExportArtifact(env, artifactDeleteMatch[1]);
+    }
+
     return json({ error: "接口不存在" }, 404);
   } catch (error) {
     return json({ error: error.message || "服务器错误" }, error.status || 500);
@@ -211,11 +216,12 @@ async function listExportArtifacts(env) {
   return json({
     artifacts: (data.artifacts || [])
       .filter((artifact) => artifact.workflow_run?.head_branch === branch(env))
-      .filter((artifact) => artifact.name === "docker-images")
+      .filter((artifact) => artifact.name === "docker-images" || artifact.name.startsWith("docker-images-"))
       .slice(0, 6)
       .map((artifact) => ({
         id: artifact.id,
         name: artifact.name,
+        filename: artifactFilename(artifact.name),
         size_in_bytes: artifact.size_in_bytes,
         expired: artifact.expired,
         created_at: artifact.created_at,
@@ -232,6 +238,8 @@ async function listExportArtifacts(env) {
 }
 
 async function downloadExportArtifact(env, artifactId) {
+  const artifact = await getArtifact(env, artifactId);
+  assertExportArtifact(artifact, env);
   const result = await github(env, `/repos/${repoPath(env)}/actions/artifacts/${encodeURIComponent(artifactId)}/zip`);
 
   if (!result.ok) {
@@ -243,10 +251,45 @@ async function downloadExportArtifact(env, artifactId) {
     status: result.status,
     headers: {
       "content-type": result.headers.get("content-type") || "application/zip",
-      "content-disposition": 'attachment; filename="docker-images.zip"',
+      "content-disposition": `attachment; filename="${artifactFilename(artifact.name)}"`,
       "cache-control": "no-store",
     },
   });
+}
+
+async function deleteExportArtifact(env, artifactId) {
+  const artifact = await getArtifact(env, artifactId);
+  assertExportArtifact(artifact, env);
+  const result = await github(env, `/repos/${repoPath(env)}/actions/artifacts/${encodeURIComponent(artifactId)}`, {
+    method: "DELETE",
+  });
+
+  if (!result.ok) {
+    const data = await result.json().catch(() => ({}));
+    throw statusError(data.message || "删除镜像包失败，请确认 GitHub Token 有 Actions 写权限", result.status);
+  }
+
+  return json({ ok: true });
+}
+
+async function getArtifact(env, artifactId) {
+  const result = await github(env, `/repos/${repoPath(env)}/actions/artifacts/${encodeURIComponent(artifactId)}`);
+  const data = await result.json().catch(() => ({}));
+
+  if (!result.ok) {
+    throw statusError(data.message || "读取镜像包信息失败", result.status);
+  }
+
+  return data;
+}
+
+function assertExportArtifact(artifact, env) {
+  const isExportName = artifact?.name === "docker-images" || String(artifact?.name || "").startsWith("docker-images-");
+  const isCurrentBranch = !artifact?.workflow_run?.head_branch || artifact.workflow_run.head_branch === branch(env);
+
+  if (!isExportName || !isCurrentBranch) {
+    throw statusError("只能操作当前分支生成的镜像包", 403);
+  }
 }
 
 async function validateImages(request) {
@@ -475,6 +518,16 @@ function workflowFile(env) {
 
 function exportWorkflowFile(env) {
   return env.EXPORT_WORKFLOW_FILE || "export-images.yaml";
+}
+
+function artifactFilename(name) {
+  const safeName = String(name || "docker-images")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 120);
+  return `${safeName || "docker-images"}.zip`;
 }
 
 function encodePath(path) {
