@@ -519,7 +519,9 @@ function renderTypedSignature(showToastAfter = false) {
   ctx.shadowColor = "rgba(15, 23, 42, 0.08)";
   ctx.shadowBlur = style.shadow;
   ctx.shadowOffsetY = 2;
-  if (style.letterSpacing) {
+  if (style.personalized) {
+    drawPersonalizedSignatureText(ctx, name, 0, 0, style.letterSpacing);
+  } else if (style.letterSpacing) {
     drawSpacedText(ctx, name, 0, 0, style.letterSpacing);
   } else {
     ctx.fillText(name, 0, 0);
@@ -567,6 +569,15 @@ function signatureStyleConfig(value) {
       letterSpacing: 5,
       underline: 0.42,
     },
+    personal: {
+      font: '"STXingkai", "Kaiti SC", "KaiTi", "HanziPen SC", cursive',
+      weight: 760,
+      shadow: 1,
+      yOffset: -7,
+      letterSpacing: 10,
+      underline: 0.72,
+      personalized: true,
+    },
   };
   return styles[value] || styles.flowing;
 }
@@ -582,6 +593,25 @@ function drawSpacedText(ctx, text, x, y, spacing) {
   });
 }
 
+function drawPersonalizedSignatureText(ctx, text, x, y, spacing) {
+  const charsInText = [...text];
+  const widths = charsInText.map((char) => ctx.measureText(char).width);
+  const total = widths.reduce((sum, width) => sum + width, 0) + spacing * Math.max(0, charsInText.length - 1);
+  let cursor = x - total / 2;
+  charsInText.forEach((char, index) => {
+    const angle = ((index % 3) - 1) * 0.075;
+    const lift = index % 2 === 0 ? -5 : 4;
+    const scale = index === charsInText.length - 1 ? 1.08 : 1;
+    ctx.save();
+    ctx.translate(cursor + widths[index] / 2, y + lift);
+    ctx.rotate(angle);
+    ctx.scale(scale, 1);
+    ctx.fillText(char, 0, 0);
+    ctx.restore();
+    cursor += widths[index] + spacing;
+  });
+}
+
 function drawSignatureUnderline(ctx, color, width, height, style) {
   const y = height * 0.68;
   const start = width * 0.22;
@@ -593,7 +623,12 @@ function drawSignatureUnderline(ctx, color, width, height, style) {
   ctx.globalAlpha = style.underline;
   ctx.beginPath();
   ctx.moveTo(start, y);
-  ctx.bezierCurveTo(width * 0.38, y + 18, width * 0.55, y + 8, end, y - 10);
+  if (style.personalized) {
+    ctx.bezierCurveTo(width * 0.34, y + 24, width * 0.58, y - 2, end, y - 18);
+    ctx.bezierCurveTo(width * 0.84, y - 25, width * 0.83, y + 4, width * 0.75, y + 8);
+  } else {
+    ctx.bezierCurveTo(width * 0.38, y + 18, width * 0.55, y + 8, end, y - 10);
+  }
   ctx.stroke();
   ctx.restore();
 }
