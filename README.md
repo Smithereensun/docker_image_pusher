@@ -4,6 +4,7 @@
 - 支持DockerHub, gcr.io, k8s.io, ghcr.io等任意仓库<br>
 - 支持最大40GB的大型镜像<br>
 - 使用阿里云的官方线路，速度快<br>
+- 新增 Cloudflare Pages 网页管理入口，可在网页中修改 images.txt 并触发 Action<br>
 
 视频教程：https://www.bilibili.com/video/BV1Zn4y19743/
 
@@ -11,6 +12,37 @@
 B站，抖音，Youtube全网同名，转载请注明作者<br>
 
 ## 使用方式
+
+### 方式一：Cloudflare Pages 网页管理
+
+本仓库现在可以部署成 Cloudflare Pages。部署后可以直接在网页中修改 `images.txt`，无需每次进 GitHub 手动编辑文件。
+
+核心文件：
+
+- `public/`：网页编辑器
+- `functions/api/[[path]].js`：Cloudflare Pages Functions API
+- `images.txt`：镜像列表
+- `.github/workflows/docker.yaml`：原有镜像转存流程
+
+Cloudflare Pages 构建设置：
+
+- Framework preset: `None`
+- Build command: 留空
+- Build output directory: `public`
+
+Cloudflare Pages 环境变量：
+
+| 变量名 | 说明 |
+| --- | --- |
+| `APP_PASSWORD` | 登录网页的访问密码 |
+| `GITHUB_TOKEN` | GitHub token，需要能读写仓库内容并触发 Actions |
+| `GITHUB_OWNER` | GitHub 仓库拥有者，例如 `Smithereensun` |
+| `GITHUB_REPO` | GitHub 仓库名，例如 `docker_image_pusher` |
+| `GITHUB_BRANCH` | 分支，默认 `main` |
+| `IMAGE_FILE_PATH` | 镜像列表文件，默认 `images.txt` |
+| `WORKFLOW_FILE` | workflow 文件名，默认 `docker.yaml` |
+
+GitHub token 推荐使用 fine-grained token，并授予本仓库 `Contents: Read and write`、`Actions: Read and write`。完整步骤见 [docs/cloudflare-pages.md](docs/cloudflare-pages.md)。
 
 
 ### 配置阿里云

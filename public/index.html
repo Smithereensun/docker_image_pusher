@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Docker Images Pusher</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar" aria-label="项目状态">
+        <div>
+          <p class="eyebrow">Cloudflare Pages</p>
+          <h1>Docker Images Pusher</h1>
+        </div>
+        <div class="status-pill" id="connectionStatus">未连接</div>
+      </section>
+
+      <section class="login-panel" id="loginPanel">
+        <div>
+          <h2>连接管理入口</h2>
+          <p>输入 Cloudflare 环境变量中配置的访问密码，网页会通过后端安全地修改 GitHub 仓库里的 images.txt。</p>
+        </div>
+        <form id="loginForm" class="login-form">
+          <label for="password">访问密码</label>
+          <div class="inline-control">
+            <input id="password" name="password" type="password" autocomplete="current-password" required />
+            <button type="submit">连接</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="workspace is-hidden" id="workspace">
+        <div class="editor-header">
+          <div>
+            <p class="eyebrow" id="repoLabel">GitHub 仓库</p>
+            <h2>镜像列表</h2>
+          </div>
+          <div class="toolbar">
+            <button class="secondary" id="refreshButton" type="button">刷新</button>
+            <button class="secondary" id="runButton" type="button">运行 Action</button>
+            <button id="saveButton" type="button">保存并提交</button>
+          </div>
+        </div>
+
+        <div class="editor-grid">
+          <div class="editor-pane">
+            <textarea id="imagesEditor" spellcheck="false" aria-label="images.txt 内容"></textarea>
+          </div>
+          <aside class="side-pane">
+            <div class="summary">
+              <span class="summary-value" id="imageCount">0</span>
+              <span class="summary-label">有效镜像</span>
+            </div>
+            <div class="hint">
+              <strong>格式示例</strong>
+              <code>nginx:1.25</code>
+              <code>--platform=linux/amd64 redis:7</code>
+              <code># 以井号开头的是注释</code>
+            </div>
+            <div class="runs">
+              <div class="runs-head">
+                <strong>最近运行</strong>
+                <button class="icon-button" id="runsRefreshButton" type="button" title="刷新运行记录">↻</button>
+              </div>
+              <div id="runsList" class="runs-list">暂无数据</div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </main>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
