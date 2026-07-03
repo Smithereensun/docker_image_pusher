@@ -370,8 +370,18 @@
             </div>
             <div class="editor-grid">
               <div class="editor-pane">
-                <label for="imagesEditor">images.txt</label>
-                <textarea id="imagesEditor" class="code-area" spellcheck="false"></textarea>
+                <div class="image-list-head">
+                  <div>
+                    <strong>镜像条目</strong>
+                    <span>一行一个镜像，支持注释和 --platform 参数</span>
+                  </div>
+                  <button type="button" id="addImageRowButton">新增镜像</button>
+                </div>
+                <div class="image-list-search">
+                  <input id="imageSearchInput" type="search" placeholder="搜索镜像、注释或平台参数" />
+                </div>
+                <div class="image-row-list" id="imageRows" aria-label="镜像列表"></div>
+                <textarea id="imagesEditor" class="code-area is-hidden" spellcheck="false"></textarea>
               </div>
               <aside class="side-pane">
                 <div class="summary">

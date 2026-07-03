@@ -33,6 +33,8 @@ const state = {
   sha: null,
   originalContent: "",
   config: null,
+  imageRows: [],
+  nextImageRowId: 1,
   mergedImageUrl: "",
   processedImageUrl: "",
   resizeSource: null,
@@ -53,6 +55,9 @@ const elements = {
   mirrorStatus: $("#mirrorStatus"),
   repoLabel: $("#repoLabel"),
   imagesEditor: $("#imagesEditor"),
+  imageRows: $("#imageRows"),
+  addImageRowButton: $("#addImageRowButton"),
+  imageSearchInput: $("#imageSearchInput"),
   imageCount: $("#imageCount"),
   refreshButton: $("#refreshButton"),
   saveButton: $("#saveButton"),
@@ -442,11 +447,20 @@ function setupMirrorTool() {
     const button = event.target.closest("[data-download-url]");
     if (button) downloadArtifact(button.dataset.downloadUrl);
   });
-  elements.imagesEditor.addEventListener("input", () => {
-    updateCount();
-    renderExportImageList();
-    renderDownloadMeta();
-    elements.validationList.textContent = "内容已修改，保存前会重新检测。";
+  elements.addImageRowButton.addEventListener("click", () => addImageRow());
+  elements.imageSearchInput.addEventListener("input", () => renderImageRows());
+  elements.imageRows.addEventListener("input", (event) => {
+    const input = event.target.closest("[data-image-row]");
+    if (!input) return;
+    const row = state.imageRows.find((item) => String(item.id) === input.dataset.imageRow);
+    if (!row) return;
+    row.text = input.value;
+    markImageRowsChanged();
+  });
+  elements.imageRows.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-row-action]");
+    if (!button) return;
+    handleImageRowAction(button.dataset.rowAction, Number(button.dataset.rowId));
   });
   if (state.password) elements.mirrorStatus.textContent = "已保存密码";
 }
@@ -478,7 +492,7 @@ async function loadImages() {
     const data = await api("/api/images");
     state.sha = data.sha;
     state.originalContent = data.content || "";
-    elements.imagesEditor.value = state.originalContent;
+    setImageRowsFromContent(state.originalContent);
     updateCount();
     renderExportImageList();
     renderDownloadMeta();
@@ -493,8 +507,9 @@ async function loadImages() {
 async function saveImages() {
   try {
     setApiBusy(true);
+    syncImageEditorFromRows();
     const content = elements.imagesEditor.value.replace(/\r\n/g, "\n");
-    if (content === state.originalContent) return showToast("内容没有变化，无需提交");
+    if (normalizeImageContent(content) === normalizeImageContent(state.originalContent)) return showToast("内容没有变化，无需提交");
     const validation = await validateImages(content);
     renderValidation(validation.results || []);
     if ((validation.summary?.invalid || 0) > 0) return showToast("发现无法公开拉取的镜像，请处理后再保存", true);
@@ -516,6 +531,7 @@ async function saveImages() {
 async function validateCurrentImages(showSuccessToast = false) {
   try {
     setApiBusy(true);
+    syncImageEditorFromRows();
     const validation = await validateImages(elements.imagesEditor.value.replace(/\r\n/g, "\n"));
     renderValidation(validation.results || []);
     if ((validation.summary?.invalid || 0) > 0) {
@@ -564,6 +580,7 @@ async function loadRuns() {
 async function exportImages() {
   try {
     setApiBusy(true);
+    syncImageEditorFromRows();
     const selectedContent = selectedExportContent();
     if (!selectedContent) return showToast("请先选择至少一个要打包的镜像", true);
     await api("/api/export", {
@@ -586,6 +603,113 @@ async function loadDownloads() {
   } catch (error) {
     elements.downloadsList.textContent = error.message;
   }
+}
+
+function setImageRowsFromContent(content) {
+  const normalized = String(content || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const lines = normalized.split("\n");
+  if (lines.at(-1) === "") lines.pop();
+  state.imageRows = lines.map((line) => ({
+    id: state.nextImageRowId++,
+    text: line,
+  }));
+  syncImageEditorFromRows();
+  renderImageRows();
+}
+
+function syncImageEditorFromRows() {
+  elements.imagesEditor.value = state.imageRows.map((row) => row.text).join("\n");
+}
+
+function addImageRow(text = "") {
+  elements.imageSearchInput.value = "";
+  const row = {
+    id: state.nextImageRowId++,
+    text,
+  };
+  state.imageRows.push(row);
+  renderImageRows();
+  markImageRowsChanged();
+  requestAnimationFrame(() => {
+    const input = elements.imageRows.querySelector(`[data-image-row="${row.id}"]`);
+    input?.focus();
+  });
+}
+
+function handleImageRowAction(action, rowId) {
+  const index = state.imageRows.findIndex((row) => row.id === rowId);
+  if (index < 0) return;
+
+  if (action === "delete") {
+    state.imageRows.splice(index, 1);
+  }
+
+  if (action === "move-up" && index > 0) {
+    [state.imageRows[index - 1], state.imageRows[index]] = [state.imageRows[index], state.imageRows[index - 1]];
+  }
+
+  if (action === "move-down" && index < state.imageRows.length - 1) {
+    [state.imageRows[index + 1], state.imageRows[index]] = [state.imageRows[index], state.imageRows[index + 1]];
+  }
+
+  renderImageRows();
+  markImageRowsChanged();
+  requestAnimationFrame(() => {
+    const input = elements.imageRows.querySelector(`[data-image-row="${rowId}"]`);
+    input?.focus();
+  });
+}
+
+function markImageRowsChanged() {
+  syncImageEditorFromRows();
+  updateCount();
+  renderExportImageList();
+  renderDownloadMeta();
+  elements.validationList.textContent = "内容已修改，保存前会重新检测。";
+}
+
+function renderImageRows() {
+  const keyword = elements.imageSearchInput.value.trim().toLowerCase();
+  if (!state.imageRows.length) {
+    elements.imageRows.innerHTML = '<div class="empty-state">暂无镜像，点击“新增镜像”开始添加。</div>';
+    return;
+  }
+
+  const rows = state.imageRows
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => !keyword || row.text.toLowerCase().includes(keyword));
+
+  if (!rows.length) {
+    elements.imageRows.innerHTML = '<div class="empty-state">没有匹配的镜像条目。</div>';
+    return;
+  }
+
+  elements.imageRows.innerHTML = rows
+    .map(({ row, index }) => {
+      const kind = imageRowKind(row.text);
+      const isFirst = index === 0;
+      const isLast = index === state.imageRows.length - 1;
+      return `
+        <div class="image-row ${kind.className}" data-row-id="${row.id}">
+          <span class="image-row-number">${index + 1}</span>
+          <span class="image-row-kind">${kind.label}</span>
+          <input class="image-row-input" data-image-row="${row.id}" type="text" value="${escapeHtml(row.text)}" placeholder="例如：nginx:1.25 或 --platform=linux/amd64 redis:7" />
+          <div class="image-row-actions">
+            <button class="row-action secondary" type="button" data-row-action="move-up" data-row-id="${row.id}" ${isFirst ? "disabled" : ""}>上移</button>
+            <button class="row-action secondary" type="button" data-row-action="move-down" data-row-id="${row.id}" ${isLast ? "disabled" : ""}>下移</button>
+            <button class="row-action danger" type="button" data-row-action="delete" data-row-id="${row.id}">删除</button>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function imageRowKind(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return { label: "空行", className: "is-blank" };
+  if (trimmed.startsWith("#")) return { label: "注释", className: "is-comment" };
+  return { label: "镜像", className: "is-image" };
 }
 
 async function downloadArtifact(path) {
@@ -892,8 +1016,19 @@ function setAllExportSelections(checked) {
 
 function setApiBusy(busy) {
   $$('[data-panel="mirror"] button').forEach((button) => {
-    button.disabled = busy;
+    if (busy) {
+      button.dataset.wasDisabled = button.disabled ? "true" : "false";
+      button.disabled = true;
+      return;
+    }
+
+    button.disabled = button.dataset.wasDisabled === "true";
+    delete button.dataset.wasDisabled;
   });
+}
+
+function normalizeImageContent(content) {
+  return String(content || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n+$/g, "");
 }
 
 function showToast(message, isError = false) {
