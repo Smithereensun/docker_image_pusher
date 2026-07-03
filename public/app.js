@@ -519,8 +519,8 @@ function renderTypedSignature(showToastAfter = false) {
   ctx.shadowColor = "rgba(15, 23, 42, 0.08)";
   ctx.shadowBlur = style.shadow;
   ctx.shadowOffsetY = 2;
-  if (style.personalized) {
-    drawPersonalizedSignatureText(ctx, name, 0, 0, style.letterSpacing);
+  if (style.scriptVariant) {
+    drawScriptSignatureText(ctx, name, 0, 0, style);
   } else if (style.letterSpacing) {
     drawSpacedText(ctx, name, 0, 0, style.letterSpacing);
   } else {
@@ -569,14 +569,23 @@ function signatureStyleConfig(value) {
       letterSpacing: 5,
       underline: 0.42,
     },
-    personal: {
-      font: '"STXingkai", "Kaiti SC", "KaiTi", "HanziPen SC", cursive',
-      weight: 760,
+    xingkai: {
+      font: '"STXingkai", "Kaiti SC", "STKaiti", "KaiTi", cursive',
+      weight: 680,
       shadow: 1,
-      yOffset: -7,
-      letterSpacing: 10,
-      underline: 0.72,
-      personalized: true,
+      yOffset: -5,
+      letterSpacing: 7,
+      underline: 0.62,
+      scriptVariant: "xingkai",
+    },
+    caoshu: {
+      font: '"STXingkai", "HanziPen SC", "Kaiti SC", "KaiTi", cursive',
+      weight: 820,
+      shadow: 1.5,
+      yOffset: -9,
+      letterSpacing: -2,
+      underline: 0.78,
+      scriptVariant: "caoshu",
     },
   };
   return styles[value] || styles.flowing;
@@ -593,19 +602,22 @@ function drawSpacedText(ctx, text, x, y, spacing) {
   });
 }
 
-function drawPersonalizedSignatureText(ctx, text, x, y, spacing) {
+function drawScriptSignatureText(ctx, text, x, y, style) {
   const charsInText = [...text];
+  const spacing = style.letterSpacing || 0;
   const widths = charsInText.map((char) => ctx.measureText(char).width);
   const total = widths.reduce((sum, width) => sum + width, 0) + spacing * Math.max(0, charsInText.length - 1);
   let cursor = x - total / 2;
   charsInText.forEach((char, index) => {
-    const angle = ((index % 3) - 1) * 0.075;
-    const lift = index % 2 === 0 ? -5 : 4;
-    const scale = index === charsInText.length - 1 ? 1.08 : 1;
+    const isCaoshu = style.scriptVariant === "caoshu";
+    const angle = isCaoshu ? ((index % 3) - 1) * 0.13 - 0.04 : ((index % 3) - 1) * 0.035;
+    const lift = isCaoshu ? (index % 2 === 0 ? -8 : 5) : (index % 2 === 0 ? -3 : 2);
+    const scaleX = isCaoshu ? (index === charsInText.length - 1 ? 1.16 : 1.06) : 1.02;
+    const scaleY = isCaoshu ? 0.96 : 1;
     ctx.save();
     ctx.translate(cursor + widths[index] / 2, y + lift);
     ctx.rotate(angle);
-    ctx.scale(scale, 1);
+    ctx.scale(scaleX, scaleY);
     ctx.fillText(char, 0, 0);
     ctx.restore();
     cursor += widths[index] + spacing;
@@ -623,8 +635,11 @@ function drawSignatureUnderline(ctx, color, width, height, style) {
   ctx.globalAlpha = style.underline;
   ctx.beginPath();
   ctx.moveTo(start, y);
-  if (style.personalized) {
+  if (style.scriptVariant === "xingkai") {
     ctx.bezierCurveTo(width * 0.34, y + 24, width * 0.58, y - 2, end, y - 18);
+  } else if (style.scriptVariant === "caoshu") {
+    ctx.bezierCurveTo(width * 0.3, y + 30, width * 0.58, y - 16, width * 0.8, y - 22);
+    ctx.bezierCurveTo(width * 0.88, y - 30, width * 0.86, y + 10, width * 0.74, y + 12);
     ctx.bezierCurveTo(width * 0.84, y - 25, width * 0.83, y + 4, width * 0.75, y + 8);
   } else {
     ctx.bezierCurveTo(width * 0.38, y + 18, width * 0.55, y + 8, end, y - 10);
