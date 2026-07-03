@@ -977,6 +977,13 @@ canvas {
   font-size: 13px;
 }
 
+.image-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .image-list-search {
   margin-bottom: 12px;
 }
@@ -994,7 +1001,7 @@ canvas {
 
 .image-row {
   display: grid;
-  grid-template-columns: 46px 66px minmax(220px, 1fr) auto;
+  grid-template-columns: 46px 66px 82px minmax(220px, 1fr) auto;
   gap: 10px;
   align-items: center;
   border: 1px solid #e0e8ee;
@@ -1023,6 +1030,32 @@ canvas {
   border: 1px solid rgba(13, 107, 115, 0.22);
   background: rgba(13, 107, 115, 0.08);
   color: var(--brand-strong);
+}
+
+.image-row-export {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  margin: 0;
+  border: 1px solid rgba(13, 107, 115, 0.24);
+  border-radius: 8px;
+  background: rgba(13, 107, 115, 0.08);
+  color: var(--brand-strong);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.image-row-export input {
+  flex: 0 0 auto;
+}
+
+.image-row-export.is-disabled {
+  border-color: #dce5ea;
+  background: #f4f7f8;
+  color: var(--muted);
 }
 
 .image-row.is-comment .image-row-kind {
@@ -1112,7 +1145,6 @@ canvas {
 
 .download-meta,
 .downloads-list,
-.export-image-list,
 .validation-list,
 .runs-list {
   display: grid;
@@ -1122,24 +1154,6 @@ canvas {
   line-height: 1.55;
 }
 
-.export-list-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  border-top: 1px solid var(--line);
-  padding-top: 10px;
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.export-list-head div {
-  display: flex;
-  gap: 10px;
-}
-
-.export-image-item,
 .download-item,
 .validation-item,
 .run-item {
@@ -1218,23 +1232,12 @@ canvas {
   gap: 8px;
 }
 
-.export-image-item {
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
-}
-
-.export-image-item input {
-  margin-top: 3px;
-}
-
-.export-image-name,
 .validation-item strong {
   overflow-wrap: anywhere;
   color: var(--ink);
   font-weight: 750;
 }
 
-.export-image-meta,
 .validation-meta,
 .run-meta {
   color: var(--muted);

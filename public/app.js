@@ -115,7 +115,6 @@ const elements = {
   downloadMeta: $("#downloadMeta"),
   selectAllExportsButton: $("#selectAllExportsButton"),
   clearExportsButton: $("#clearExportsButton"),
-  exportImageList: $("#exportImageList"),
   downloadsRefreshButton: $("#downloadsRefreshButton"),
   downloadsList: $("#downloadsList"),
   validateButton: $("#validateButton"),
@@ -1355,7 +1354,7 @@ function setupMirrorTool() {
   elements.validateButton.addEventListener("click", () => validateCurrentImages(true));
   elements.runsRefreshButton.addEventListener("click", () => loadRuns());
   elements.downloadsRefreshButton.addEventListener("click", () => loadDownloads());
-  elements.exportImageList.addEventListener("change", (event) => {
+  elements.imageRows.addEventListener("change", (event) => {
     if (!event.target.matches("[data-export-key]")) return;
     state.exportSelections.set(event.target.dataset.exportKey, event.target.checked);
     renderDownloadMeta();
@@ -1379,6 +1378,7 @@ function setupMirrorTool() {
     if (!row) return;
     row.text = input.value;
     markImageRowsChanged();
+    updateImageRowDerivedUi(input, row);
   });
   elements.imageRows.addEventListener("click", (event) => {
     const button = event.target.closest("[data-row-action]");
@@ -1417,7 +1417,6 @@ async function loadImages() {
     state.originalContent = data.content || "";
     setImageRowsFromContent(state.originalContent);
     updateCount();
-    renderExportImageList();
     renderDownloadMeta();
     showToast("已读取镜像列表");
   } catch (error) {
@@ -1551,6 +1550,7 @@ function addImageRow(text = "") {
     text,
   };
   state.imageRows.push(row);
+  syncImageEditorFromRows();
   renderImageRows();
   markImageRowsChanged();
   requestAnimationFrame(() => {
@@ -1575,6 +1575,7 @@ function handleImageRowAction(action, rowId) {
     [state.imageRows[index + 1], state.imageRows[index]] = [state.imageRows[index], state.imageRows[index + 1]];
   }
 
+  syncImageEditorFromRows();
   renderImageRows();
   markImageRowsChanged();
   requestAnimationFrame(() => {
@@ -1586,12 +1587,12 @@ function handleImageRowAction(action, rowId) {
 function markImageRowsChanged() {
   syncImageEditorFromRows();
   updateCount();
-  renderExportImageList();
   renderDownloadMeta();
   elements.validationList.textContent = "内容已修改，保存前会重新检测。";
 }
 
 function renderImageRows() {
+  syncExportSelections();
   const keyword = elements.imageSearchInput.value.trim().toLowerCase();
   if (!state.imageRows.length) {
     elements.imageRows.innerHTML = '<div class="empty-state">暂无镜像，点击“新增镜像”开始添加。</div>';
@@ -1612,10 +1613,14 @@ function renderImageRows() {
       const kind = imageRowKind(row.text);
       const isFirst = index === 0;
       const isLast = index === state.imageRows.length - 1;
+      const entry = imageRowExportEntry(row.text, index + 1);
+      const exportKey = entry ? exportEntryKey(entry) : "";
+      const checked = entry && state.exportSelections.get(exportKey) !== false;
       return `
         <div class="image-row ${kind.className}" data-row-id="${row.id}">
           <span class="image-row-number">${index + 1}</span>
           <span class="image-row-kind">${kind.label}</span>
+          ${entry ? `<label class="image-row-export"><input type="checkbox" data-export-key="${escapeHtml(exportKey)}" ${checked ? "checked" : ""} /> 打包</label>` : '<span class="image-row-export is-disabled">不打包</span>'}
           <input class="image-row-input" data-image-row="${row.id}" type="text" value="${escapeHtml(row.text)}" placeholder="例如：nginx:1.25 或 --platform=linux/amd64 redis:7" />
           <div class="image-row-actions">
             <button class="row-action secondary" type="button" data-row-action="move-up" data-row-id="${row.id}" ${isFirst ? "disabled" : ""}>上移</button>
@@ -1633,6 +1638,31 @@ function imageRowKind(text) {
   if (!trimmed) return { label: "空行", className: "is-blank" };
   if (trimmed.startsWith("#")) return { label: "注释", className: "is-comment" };
   return { label: "镜像", className: "is-image" };
+}
+
+function updateImageRowDerivedUi(input, row) {
+  const container = input.closest(".image-row");
+  if (!container) return;
+  const index = state.imageRows.findIndex((item) => item.id === row.id);
+  if (index < 0) return;
+
+  const kind = imageRowKind(row.text);
+  container.classList.remove("is-image", "is-comment", "is-blank");
+  container.classList.add(kind.className);
+  const kindLabel = container.querySelector(".image-row-kind");
+  if (kindLabel) kindLabel.textContent = kind.label;
+
+  const exportControl = container.querySelector(".image-row-export");
+  if (!exportControl) return;
+  const entry = imageRowExportEntry(row.text, index + 1);
+  if (!entry) {
+    exportControl.outerHTML = '<span class="image-row-export is-disabled">不打包</span>';
+    return;
+  }
+
+  const key = exportEntryKey(entry);
+  const checked = state.exportSelections.get(key) !== false;
+  exportControl.outerHTML = `<label class="image-row-export"><input type="checkbox" data-export-key="${escapeHtml(key)}" ${checked ? "checked" : ""} /> 打包</label>`;
 }
 
 async function downloadArtifact(path, filename = "docker-images.zip", trigger) {
@@ -1752,28 +1782,25 @@ function renderValidation(results) {
 }
 
 function renderDownloadMeta() {
-  const entries = parseManagedImageLines(elements.imagesEditor.value || "");
+  const entries = syncExportSelections();
   const selectedCount = selectedExportEntries().length;
   elements.downloadMeta.textContent = entries.length ? `已选择 ${selectedCount}/${entries.length} 个镜像，生成完成后可直接下载。` : "当前没有可导出的有效镜像。";
 }
 
-function renderExportImageList() {
+function syncExportSelections() {
   const entries = parseManagedImageLines(elements.imagesEditor.value || "");
   const nextSelections = new Map();
   if (!entries.length) {
     state.exportSelections = nextSelections;
-    elements.exportImageList.textContent = "暂无可选镜像";
-    return;
+    return entries;
   }
-  elements.exportImageList.innerHTML = entries
-    .map((entry) => {
-      const key = exportEntryKey(entry);
-      const checked = state.exportSelections.has(key) ? state.exportSelections.get(key) : true;
-      nextSelections.set(key, checked);
-      return `<label class="export-image-item"><input type="checkbox" data-export-key="${escapeHtml(key)}" ${checked ? "checked" : ""} /><span><span class="export-image-name">${escapeHtml(entry.image)}</span><span class="export-image-meta">第 ${escapeHtml(entry.lineNumber)} 行${entry.platform ? ` · ${escapeHtml(entry.platform)}` : ""}</span></span></label>`;
-    })
-    .join("");
+
+  entries.forEach((entry) => {
+    const key = exportEntryKey(entry);
+    nextSelections.set(key, state.exportSelections.has(key) ? state.exportSelections.get(key) : true);
+  });
   state.exportSelections = nextSelections;
+  return entries;
 }
 
 function renderDownloads(runs, artifacts) {
@@ -2236,8 +2263,11 @@ function updateCount() {
 }
 
 function setAllExportSelections(checked) {
+  syncExportSelections();
   for (const key of state.exportSelections.keys()) state.exportSelections.set(key, checked);
-  renderExportImageList();
+  elements.imageRows.querySelectorAll("[data-export-key]").forEach((input) => {
+    input.checked = checked;
+  });
   renderDownloadMeta();
 }
 
@@ -2289,8 +2319,21 @@ function parseManagedImageLines(content) {
     .filter((entry) => entry.image);
 }
 
+function imageRowExportEntry(text, lineNumber) {
+  const line = String(text || "").trim();
+  if (!line || line.startsWith("#")) return null;
+  const image = line.split(/\s+/).at(-1);
+  if (!image) return null;
+  return {
+    lineNumber,
+    raw: line,
+    image,
+    platform: parsePlatform(line),
+  };
+}
+
 function selectedExportEntries() {
-  return parseManagedImageLines(elements.imagesEditor.value || "").filter((entry) => state.exportSelections.get(exportEntryKey(entry)) !== false);
+  return syncExportSelections().filter((entry) => state.exportSelections.get(exportEntryKey(entry)) !== false);
 }
 
 function selectedExportContent() {

@@ -548,9 +548,13 @@
                 <div class="image-list-head">
                   <div>
                     <strong>镜像条目</strong>
-                    <span>一行一个镜像，支持注释和 --platform 参数</span>
+                    <span>一行一个镜像，勾选“打包”后会加入镜像包生成</span>
                   </div>
-                  <button type="button" id="addImageRowButton">新增镜像</button>
+                  <div class="image-list-actions">
+                    <button class="link-button" type="button" id="selectAllExportsButton">全选打包</button>
+                    <button class="link-button" type="button" id="clearExportsButton">清空打包</button>
+                    <button type="button" id="addImageRowButton">新增镜像</button>
+                  </div>
                 </div>
                 <div class="image-list-search">
                   <input id="imageSearchInput" type="search" placeholder="搜索镜像、注释或平台参数" />
@@ -575,14 +579,6 @@
                     <button class="small-button" type="button" id="exportButton">生成</button>
                   </div>
                   <p class="download-meta" id="downloadMeta">选择要导出的镜像。</p>
-                  <div class="export-list-head">
-                    <span>镜像选择</span>
-                    <div>
-                      <button class="link-button" type="button" id="selectAllExportsButton">全选</button>
-                      <button class="link-button" type="button" id="clearExportsButton">清空</button>
-                    </div>
-                  </div>
-                  <div class="export-image-list" id="exportImageList">暂无可选镜像</div>
                   <div class="runs-head">
                     <strong>下载记录</strong>
                     <button class="small-button secondary" type="button" id="downloadsRefreshButton">刷新</button>
