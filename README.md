@@ -41,8 +41,11 @@ Cloudflare Pages 环境变量：
 | `GITHUB_BRANCH` | 分支，默认 `main` |
 | `IMAGE_FILE_PATH` | 镜像列表文件，默认 `images.txt` |
 | `WORKFLOW_FILE` | workflow 文件名，默认 `docker.yaml` |
+| `EXPORT_WORKFLOW_FILE` | 镜像包导出 workflow 文件名，默认 `export-images.yaml` |
 
 GitHub token 推荐使用 fine-grained token，并授予本仓库 `Contents: Read and write`、`Actions: Read and write`。完整步骤见 [docs/cloudflare-pages.md](docs/cloudflare-pages.md)。
+
+部署完成后，网页还可以触发 `export-images.yaml` 生成浏览器可下载的镜像包。GitHub Action 会从阿里云镜像仓库拉取镜像，执行 `docker save` 生成 `docker-images.tar.gz`，再上传为 GitHub Actions artifact。下载后可用 `docker load -i docker-images.tar.gz` 导入。
 
 
 ### 配置阿里云

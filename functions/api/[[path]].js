@@ -41,6 +41,23 @@ export async function onRequest(context) {
       return await listRuns(env);
     }
 
+    if (request.method === "POST" && route === "export") {
+      return await dispatchExportWorkflow(env);
+    }
+
+    if (request.method === "GET" && route === "exports") {
+      return await listExportRuns(env);
+    }
+
+    if (request.method === "GET" && route === "export-artifacts") {
+      return await listExportArtifacts(env);
+    }
+
+    const artifactMatch = route.match(/^export-artifacts\/(\d+)\/download$/);
+    if (request.method === "GET" && artifactMatch) {
+      return await downloadExportArtifact(env, artifactMatch[1]);
+    }
+
     return json({ error: "接口不存在" }, 404);
   } catch (error) {
     return json({ error: error.message || "服务器错误" }, error.status || 500);
@@ -112,6 +129,20 @@ async function dispatchWorkflow(env) {
   return json({ ok: true }, 202);
 }
 
+async function dispatchExportWorkflow(env) {
+  const result = await github(env, `/repos/${repoPath(env)}/actions/workflows/${encodeURIComponent(exportWorkflowFile(env))}/dispatches`, {
+    method: "POST",
+    body: JSON.stringify({ ref: branch(env) }),
+  });
+
+  if (!result.ok) {
+    const data = await result.json().catch(() => ({}));
+    throw statusError(data.message || "触发镜像包导出失败", result.status);
+  }
+
+  return json({ ok: true }, 202);
+}
+
 async function listRuns(env) {
   const result = await github(env, `/repos/${repoPath(env)}/actions/workflows/${encodeURIComponent(workflowFile(env))}/runs?branch=${encodeURIComponent(branch(env))}&per_page=6`);
   const data = await result.json();
@@ -130,6 +161,76 @@ async function listRuns(env) {
       created_at: run.created_at,
       html_url: run.html_url,
     })),
+  });
+}
+
+async function listExportRuns(env) {
+  const result = await github(env, `/repos/${repoPath(env)}/actions/workflows/${encodeURIComponent(exportWorkflowFile(env))}/runs?branch=${encodeURIComponent(branch(env))}&per_page=6`);
+  const data = await result.json();
+
+  if (!result.ok) {
+    throw statusError(data.message || "读取镜像包导出记录失败", result.status);
+  }
+
+  return json({
+    runs: (data.workflow_runs || []).map((run) => ({
+      id: run.id,
+      run_number: run.run_number,
+      status: run.status,
+      conclusion: run.conclusion,
+      event: run.event,
+      created_at: run.created_at,
+      html_url: run.html_url,
+    })),
+  });
+}
+
+async function listExportArtifacts(env) {
+  const result = await github(env, `/repos/${repoPath(env)}/actions/artifacts?per_page=30`);
+  const data = await result.json();
+
+  if (!result.ok) {
+    throw statusError(data.message || "读取镜像包下载链接失败", result.status);
+  }
+
+  return json({
+    artifacts: (data.artifacts || [])
+      .filter((artifact) => artifact.workflow_run?.head_branch === branch(env))
+      .filter((artifact) => artifact.name === "docker-images")
+      .slice(0, 6)
+      .map((artifact) => ({
+        id: artifact.id,
+        name: artifact.name,
+        size_in_bytes: artifact.size_in_bytes,
+        expired: artifact.expired,
+        created_at: artifact.created_at,
+        expires_at: artifact.expires_at,
+        download_url: `/api/export-artifacts/${artifact.id}/download`,
+        workflow_run: artifact.workflow_run
+          ? {
+              id: artifact.workflow_run.id,
+              html_url: artifact.workflow_run.html_url,
+            }
+          : null,
+      })),
+  });
+}
+
+async function downloadExportArtifact(env, artifactId) {
+  const result = await github(env, `/repos/${repoPath(env)}/actions/artifacts/${encodeURIComponent(artifactId)}/zip`);
+
+  if (!result.ok) {
+    const data = await result.json().catch(() => ({}));
+    throw statusError(data.message || "下载镜像包失败", result.status);
+  }
+
+  return new Response(result.body, {
+    status: result.status,
+    headers: {
+      "content-type": result.headers.get("content-type") || "application/zip",
+      "content-disposition": 'attachment; filename="docker-images.zip"',
+      "cache-control": "no-store",
+    },
   });
 }
 
@@ -355,6 +456,10 @@ function imageFilePath(env) {
 
 function workflowFile(env) {
   return env.WORKFLOW_FILE || "docker.yaml";
+}
+
+function exportWorkflowFile(env) {
+  return env.EXPORT_WORKFLOW_FILE || "export-images.yaml";
 }
 
 function encodePath(path) {

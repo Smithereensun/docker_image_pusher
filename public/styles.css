@@ -241,6 +241,7 @@ textarea:focus {
 
 .summary,
 .hint,
+.download-panel,
 .validation,
 .runs {
   border: 1px solid var(--line);
@@ -280,6 +281,56 @@ textarea:focus {
   padding: 8px;
   color: #27313b;
   font-size: 13px;
+}
+
+.download-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.download-meta,
+.downloads-list {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.downloads-list {
+  display: grid;
+  gap: 8px;
+}
+
+.download-item {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.download-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.download-item a {
+  color: var(--brand);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.link-button {
+  min-height: auto;
+  justify-self: start;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--brand);
+  font-weight: 800;
+}
+
+.link-button:hover {
+  background: transparent;
+  color: var(--brand-strong);
 }
 
 .runs-head {

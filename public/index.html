@@ -58,6 +58,16 @@
               <code>--platform=linux/amd64 redis:7</code>
               <code># 以井号开头的是注释</code>
             </div>
+            <div class="download-panel">
+              <div class="runs-head">
+                <strong>浏览器下载</strong>
+                <button class="secondary small-button" id="exportButton" type="button">生成镜像包</button>
+              </div>
+              <div class="download-meta" id="downloadMeta">
+                生成完成后会出现下载链接，浏览器可直接下载 docker-images.tar.gz。
+              </div>
+              <div id="downloadsList" class="downloads-list">暂无镜像包</div>
+            </div>
             <div class="validation">
               <div class="runs-head">
                 <strong>保存前检测</strong>
