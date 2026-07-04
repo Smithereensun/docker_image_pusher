@@ -82,66 +82,79 @@ jobs:
           done < "$image_list_file"
 
           mkdir -p export
-          export_images=()
           {
             echo "镜像包清单"
             echo "生成时间：$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
             echo
           } > export/manifest.txt
 
+          declare -A package_names
           while IFS= read -r line || [ -n "$line" ]; do
-              [[ -z "$line" ]] && continue
-              if echo "$line" | grep -q '^\s*#'; then
-                  continue
+            [[ -z "$line" ]] && continue
+            if echo "$line" | grep -q '^\s*#'; then
+              continue
+            fi
+
+            platform=$(echo "$line" | awk -F'--platform[ =]' '{if (NF>1) print $2}' | awk '{print $1}')
+            if [ -z "$platform" ]; then
+              platform_prefix=""
+            else
+              platform_prefix="${platform//\//_}_"
+            fi
+
+            image=$(echo "$line" | awk '{print $NF}')
+            image_no_digest="${image%%@*}"
+            image_name_tag=$(echo "$image_no_digest" | awk -F'/' '{print $NF}')
+            name_space=$(echo "$image_no_digest" | awk -F'/' '{if (NF==3) print $2; else if (NF==2) print $1; else print ""}')
+            image_name=$(echo "$image_name_tag" | awk -F':' '{print $1}')
+
+            name_space_prefix=""
+            if [[ -n "${duplicate_images[$image_name]:-}" ]]; then
+              if [[ -n "${name_space}" ]]; then
+                name_space_prefix="${name_space}_"
               fi
+            fi
 
-              platform=$(echo "$line" | awk -F'--platform[ =]' '{if (NF>1) print $2}' | awk '{print $1}')
-              if [ -z "$platform" ]; then
-                  platform_prefix=""
-              else
-                  platform_prefix="${platform//\//_}_"
+            aliyun_image="$ALIYUN_REGISTRY/$ALIYUN_NAME_SPACE/$platform_prefix$name_space_prefix$image_name_tag"
+            echo "docker pull $aliyun_image"
+            docker pull "$aliyun_image"
+
+            if [[ "$image" != *"@"* ]]; then
+              echo "docker tag $aliyun_image $image"
+              docker tag "$aliyun_image" "$image"
+              export_image="$image"
+            else
+              export_image="$aliyun_image"
+            fi
+
+            package_label=$(printf '%s' "$export_image" | sed -E 's/[^A-Za-z0-9._-]+/-/g; s/^-+//; s/-+$//; s/-+/-/g' | cut -c1-100)
+            if [ -z "$package_label" ]; then
+              package_label="image"
+            fi
+            package_name="docker-image-${package_label}"
+            package_index="${package_names[$package_name]:-0}"
+            package_names[$package_name]=$((package_index + 1))
+            if [ "$package_index" -gt 0 ]; then
+              package_name="${package_name}-$((package_index + 1))"
+            fi
+            package_file="${package_name}.tar.gz"
+
+            echo "docker save $export_image -> export/$package_file"
+            docker save "$export_image" | gzip > "export/$package_file"
+
+            {
+              echo "原始镜像：$image"
+              echo "阿里云镜像：$aliyun_image"
+              echo "包内标签：$export_image"
+              echo "镜像包文件：$package_file"
+              if [ -n "$platform" ]; then
+                echo "指定架构：$platform"
               fi
-
-              image=$(echo "$line" | awk '{print $NF}')
-              image_no_digest="${image%%@*}"
-              image_name_tag=$(echo "$image_no_digest" | awk -F'/' '{print $NF}')
-              name_space=$(echo "$image_no_digest" | awk -F'/' '{if (NF==3) print $2; else if (NF==2) print $1; else print ""}')
-              image_name=$(echo "$image_name_tag" | awk -F':' '{print $1}')
-
-              name_space_prefix=""
-              if [[ -n "${duplicate_images[$image_name]:-}" ]]; then
-                 if [[ -n "${name_space}" ]]; then
-                    name_space_prefix="${name_space}_"
-                 fi
-              fi
-
-              aliyun_image="$ALIYUN_REGISTRY/$ALIYUN_NAME_SPACE/$platform_prefix$name_space_prefix$image_name_tag"
-              echo "docker pull $aliyun_image"
-              docker pull "$aliyun_image"
-
-              if [[ "$image" != *"@"* ]]; then
-                echo "docker tag $aliyun_image $image"
-                docker tag "$aliyun_image" "$image"
-                export_images+=("$image")
-                export_image="$image"
-              else
-                export_images+=("$aliyun_image")
-                export_image="$aliyun_image"
-              fi
-
-              {
-                echo "原始镜像：$image"
-                echo "阿里云镜像：$aliyun_image"
-                echo "包内标签：$export_image"
-                if [ -n "$platform" ]; then
-                  echo "指定架构：$platform"
-                fi
-                echo
-              } >> export/manifest.txt
+              echo
+            } >> export/manifest.txt
           done < "$image_list_file"
 
-          docker save "${export_images[@]}" | gzip > export/docker-images.tar.gz
-          printf '导入方式：\n\n  docker load -i docker-images.tar.gz\n\n镜像清单请查看 manifest.txt。\n' > export/README.txt
+          printf '导入方式：\n\n  每个 .tar.gz 文件只包含一个镜像，可单独导入：\n\n    docker load -i docker-image-example.tar.gz\n\n  如果要导入当前目录下全部镜像包：\n\n    for file in docker-image-*.tar.gz; do docker load -i "$file"; done\n\n镜像清单请查看 manifest.txt。\n' > export/README.txt
 
       - name: 上传镜像包
         uses: actions/upload-artifact@v4
