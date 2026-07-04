@@ -108,7 +108,6 @@ const elements = {
   imageRows: $("#imageRows"),
   addImageRowButton: $("#addImageRowButton"),
   imageSearchInput: $("#imageSearchInput"),
-  imageCount: $("#imageCount"),
   refreshButton: $("#refreshButton"),
   saveButton: $("#saveButton"),
   runButton: $("#runButton"),
@@ -1550,7 +1549,7 @@ function syncImageEditorFromRows() {
   elements.imagesEditor.value = state.imageRows.map((row) => row.text).join("\n");
 }
 
-function addImageRow(text = "") {
+function addImageRow(text = "nginx:latest") {
   elements.imageSearchInput.value = "";
   const row = {
     id: state.nextImageRowId++,
@@ -1572,14 +1571,6 @@ function handleImageRowAction(action, rowId) {
 
   if (action === "delete") {
     state.imageRows.splice(index, 1);
-  }
-
-  if (action === "move-up" && index > 0) {
-    [state.imageRows[index - 1], state.imageRows[index]] = [state.imageRows[index], state.imageRows[index - 1]];
-  }
-
-  if (action === "move-down" && index < state.imageRows.length - 1) {
-    [state.imageRows[index + 1], state.imageRows[index]] = [state.imageRows[index], state.imageRows[index + 1]];
   }
 
   syncImageEditorFromRows();
@@ -1618,20 +1609,15 @@ function renderImageRows() {
   elements.imageRows.innerHTML = rows
     .map(({ row, index }) => {
       const kind = imageRowKind(row.text);
-      const isFirst = index === 0;
-      const isLast = index === state.imageRows.length - 1;
       const entry = imageRowExportEntry(row.text, index + 1);
       const exportKey = entry ? exportEntryKey(entry) : "";
       const checked = entry && state.exportSelections.get(exportKey) !== false;
       return `
         <div class="image-row ${kind.className}" data-row-id="${row.id}">
           <span class="image-row-number">${index + 1}</span>
-          <span class="image-row-kind">${kind.label}</span>
           ${entry ? `<label class="image-row-export"><input type="checkbox" data-export-key="${escapeHtml(exportKey)}" ${checked ? "checked" : ""} /> 打包</label>` : '<span class="image-row-export is-disabled">不打包</span>'}
           <input class="image-row-input" data-image-row="${row.id}" type="text" value="${escapeHtml(row.text)}" placeholder="例如：nginx:1.25 或 --platform=linux/amd64 redis:7" />
           <div class="image-row-actions">
-            <button class="row-action secondary" type="button" data-row-action="move-up" data-row-id="${row.id}" ${isFirst ? "disabled" : ""}>上移</button>
-            <button class="row-action secondary" type="button" data-row-action="move-down" data-row-id="${row.id}" ${isLast ? "disabled" : ""}>下移</button>
             <button class="row-action danger" type="button" data-row-action="delete" data-row-id="${row.id}">删除</button>
           </div>
         </div>
@@ -1656,8 +1642,6 @@ function updateImageRowDerivedUi(input, row) {
   const kind = imageRowKind(row.text);
   container.classList.remove("is-image", "is-comment", "is-blank");
   container.classList.add(kind.className);
-  const kindLabel = container.querySelector(".image-row-kind");
-  if (kindLabel) kindLabel.textContent = kind.label;
 
   const exportControl = container.querySelector(".image-row-export");
   if (!exportControl) return;
@@ -2240,7 +2224,7 @@ function readNumber(selector, min, max, fallback) {
 }
 
 function updateCount() {
-  elements.imageCount.textContent = String(parseManagedImageLines(elements.imagesEditor.value).length);
+  renderDownloadMeta();
 }
 
 function setAllExportSelections(checked) {

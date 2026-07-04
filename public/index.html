@@ -548,25 +548,22 @@
                 <div class="image-list-head">
                   <div>
                     <strong>镜像条目</strong>
-                    <span>一行一个镜像，勾选“打包”后会加入镜像包生成</span>
+                    <span id="downloadMeta">选择要打包的镜像，生成完成后可直接下载。</span>
                   </div>
                   <div class="image-list-actions">
                     <button class="link-button" type="button" id="selectAllExportsButton">全选打包</button>
                     <button class="link-button" type="button" id="clearExportsButton">清空打包</button>
+                    <button type="button" id="exportButton">生成镜像包</button>
                     <button type="button" id="addImageRowButton">新增镜像</button>
                   </div>
                 </div>
                 <div class="image-list-search">
-                  <input id="imageSearchInput" type="search" placeholder="搜索镜像、注释或平台参数" />
+                  <input id="imageSearchInput" type="search" placeholder="搜索镜像" />
                 </div>
                 <div class="image-row-list" id="imageRows" aria-label="镜像列表"></div>
                 <textarea id="imagesEditor" class="code-area is-hidden" spellcheck="false"></textarea>
               </div>
               <aside class="side-pane">
-                <div class="summary">
-                  <span class="summary-value" id="imageCount">0</span>
-                  <span class="summary-label">有效镜像</span>
-                </div>
                 <div class="validation">
                   <div class="runs-head">
                     <strong>保存前检测</strong>
@@ -574,11 +571,6 @@
                   <div class="validation-list" id="validationList">保存前会检测 Docker Hub 公共镜像是否可拉取。</div>
                 </div>
                 <div class="download-panel">
-                  <div class="runs-head">
-                    <strong>生成镜像包</strong>
-                    <button class="small-button" type="button" id="exportButton">生成</button>
-                  </div>
-                  <p class="download-meta" id="downloadMeta">选择要导出的镜像。</p>
                   <div class="runs-head">
                     <strong>下载记录</strong>
                     <button class="small-button secondary" type="button" id="downloadsRefreshButton">刷新</button>
