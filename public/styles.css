@@ -294,10 +294,16 @@ p {
   width: 42px;
   height: 42px;
   place-items: center;
+  overflow: hidden;
   border-radius: 8px;
-  background: var(--brand);
-  color: #fff;
-  font-weight: 850;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px var(--line), 0 8px 18px rgba(31, 41, 51, 0.08);
+}
+
+.brand-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .brand strong,
@@ -503,6 +509,85 @@ p {
 
 .field-block {
   min-width: 0;
+}
+
+.field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.field-label-row label {
+  margin: 0;
+}
+
+.field-label-row > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.json-menu-group {
+  position: relative;
+}
+
+.mini-menu {
+  position: relative;
+}
+
+.mini-menu summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border: 1px solid #dce5ea;
+  border-radius: 8px;
+  background: #edf2f4;
+  padding: 0 12px;
+  color: var(--ink);
+  font-weight: 750;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.mini-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.mini-menu[open] summary {
+  background: #dde7eb;
+}
+
+.mini-menu-panel {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  min-width: 180px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--soft-shadow);
+}
+
+.mini-menu-panel button {
+  justify-content: flex-start;
+  min-height: 42px;
+  border-radius: 0;
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+}
+
+.mini-menu-panel button:hover {
+  background: var(--panel-soft);
+  box-shadow: none;
+  transform: none;
 }
 
 .code-area,

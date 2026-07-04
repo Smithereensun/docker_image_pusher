@@ -267,6 +267,12 @@ function setupJsonTool() {
   const input = $("#jsonInput");
   const tree = $("#jsonTree");
   autoResizeTextarea(input);
+  $("#jsonExpandAllButton").addEventListener("click", () => setJsonTreeOpen(true));
+  $("#jsonCollapseAllButton").addEventListener("click", () => setJsonTreeOpen(false));
+  $("#jsonEscapeButton").addEventListener("click", () => transformJsonInput((value) => addSlashEscapes(value), "已添加转义"));
+  $("#jsonUnescapeButton").addEventListener("click", () => transformJsonInput((value) => removeSlashEscapes(value), "已去除转义"));
+  $("#jsonChineseToUnicodeButton").addEventListener("click", () => transformJsonInput((value) => chineseToUnicode(value), "已转换为 Unicode"));
+  $("#jsonUnicodeToChineseButton").addEventListener("click", () => transformJsonInput((value) => unicodeToChinese(value), "已转换为中文"));
   $("#jsonExampleButton").addEventListener("click", () => {
     input.value = JSON.stringify(jsonExample, null, 2);
     autoResizeTextarea(input);
@@ -300,6 +306,43 @@ function setupJsonTool() {
     const data = parseJsonStrict(input.value);
     if (data.ok) renderJsonTree(data.value, tree);
   });
+}
+
+function transformJsonInput(transform, message) {
+  const input = $("#jsonInput");
+  const tree = $("#jsonTree");
+  input.value = transform(input.value);
+  autoResizeTextarea(input);
+  const data = parseJsonStrict(input.value);
+  if (data.ok) renderJsonTree(data.value, tree);
+  $$(".mini-menu").forEach((menu) => {
+    menu.open = false;
+  });
+  showToast(message);
+}
+
+function setJsonTreeOpen(open) {
+  const details = $$("#jsonTree details");
+  if (!details.length) return showToast("暂无可操作的树视图", true);
+  details.forEach((item) => {
+    item.open = open;
+  });
+}
+
+function addSlashEscapes(value) {
+  return String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function removeSlashEscapes(value) {
+  return String(value).replace(/\\(["\\])/g, "$1");
+}
+
+function chineseToUnicode(value) {
+  return String(value).replace(/[^\x00-\x7F]/g, (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`);
+}
+
+function unicodeToChinese(value) {
+  return String(value).replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
 }
 
 function renderJsonTree(value, target) {

@@ -4,13 +4,16 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>在线工具箱</title>
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <div class="app-shell">
       <aside class="sidebar" aria-label="工具导航">
         <div class="brand">
-          <span class="brand-mark">工</span>
+          <span class="brand-mark" aria-hidden="true">
+            <img src="/icon.svg" alt="" />
+          </span>
           <div>
             <strong>在线工具箱</strong>
             <span>常用文件与文本工具</span>
@@ -59,11 +62,35 @@
           </div>
           <div class="split-grid">
             <div class="field-block">
-              <label for="jsonInput">JSON 内容</label>
+              <div class="field-label-row">
+                <label for="jsonInput">JSON 内容</label>
+                <div class="json-menu-group">
+                  <details class="mini-menu">
+                    <summary>\ 转义</summary>
+                    <div class="mini-menu-panel">
+                      <button type="button" id="jsonEscapeButton">添加 \ 转义</button>
+                      <button type="button" id="jsonUnescapeButton">去除 \ 转义</button>
+                    </div>
+                  </details>
+                  <details class="mini-menu">
+                    <summary>Unicode \ 转义</summary>
+                    <div class="mini-menu-panel">
+                      <button type="button" id="jsonChineseToUnicodeButton">中文转 Unicode</button>
+                      <button type="button" id="jsonUnicodeToChineseButton">Unicode 转中文</button>
+                    </div>
+                  </details>
+                </div>
+              </div>
               <textarea id="jsonInput" class="code-area json-input" spellcheck="false" placeholder='{"name":"tools","enabled":true}'></textarea>
             </div>
             <div class="field-block">
-              <label>树视图</label>
+              <div class="field-label-row">
+                <label>树视图</label>
+                <div>
+                  <button class="link-button" type="button" id="jsonExpandAllButton">全部展开</button>
+                  <button class="link-button" type="button" id="jsonCollapseAllButton">全部折叠</button>
+                </div>
+              </div>
               <div class="tree-view" id="jsonTree">等待输入 JSON</div>
             </div>
           </div>
