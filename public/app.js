@@ -1,5 +1,6 @@
 const CDN = {
   jszip: "https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm",
+  zipjs: "https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.8.26/+esm",
   pdfLib: "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm",
   pdfjs: "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.mjs",
   pdfWorker: "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs",
@@ -1282,20 +1283,26 @@ async function encryptFolder() {
   if (!files.length) return showToast("请先选择文件夹", true);
   if (!password) return showToast("请输入加密密码", true);
   try {
-    log.textContent = "正在打包文件夹...";
-    const { default: JSZip } = await import(CDN.jszip);
-    const zip = new JSZip();
-    files.forEach((file) => zip.file(file.webkitRelativePath || file.name, file));
-    const zipBytes = await zip.generateAsync({ type: "uint8array" });
-    log.textContent = "正在加密...";
-    const encrypted = await encryptBytes(zipBytes, password);
-    const packageZip = new JSZip();
-    packageZip.file("encrypted-data.bin", encrypted);
-    packageZip.file("README.txt", "这是由在线工具箱生成的加密文件夹 zip 包。\n请回到工具箱的“文件夹加密”功能，输入密码解密为 zip。\n");
-    const packageBlob = await packageZip.generateAsync({ type: "blob" });
-    downloadBlob(packageBlob, "folder-encrypted.zip");
-    log.textContent = `完成，已加密 ${files.length} 个文件，并生成 zip 格式加密包。`;
-    showToast("加密 zip 包已生成");
+    log.textContent = "正在生成标准密码 ZIP...";
+    const { BlobReader, BlobWriter, ZipWriter } = await import(CDN.zipjs);
+    const zipWriter = new ZipWriter(new BlobWriter("application/zip"), {
+      password,
+      encryptionStrength: 3,
+      level: 6,
+    });
+
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      log.textContent = `正在加密第 ${index + 1}/${files.length} 个文件...`;
+      await zipWriter.add(safeZipEntryName(file.webkitRelativePath || file.name), new BlobReader(file), {
+        lastModDate: new Date(file.lastModified || Date.now()),
+      });
+    }
+
+    const zipBlob = await zipWriter.close();
+    downloadBlob(zipBlob, "folder-encrypted.zip");
+    log.textContent = `完成，已生成标准密码 ZIP，共 ${files.length} 个文件。可直接用 Keka 输入密码解压。`;
+    showToast("标准密码 ZIP 已生成");
   } catch (error) {
     log.textContent = error.message;
     showToast(`加密失败：${error.message}`, true);
@@ -1309,31 +1316,31 @@ async function decryptFolder() {
   if (!file) return showToast("请选择加密 zip 包", true);
   if (!password) return showToast("请输入解密密码", true);
   try {
-    log.textContent = "正在解密...";
-    const encrypted = await readEncryptedPackage(file);
-    const decrypted = await decryptBytes(encrypted, password);
-    downloadBlob(new Blob([decrypted], { type: "application/zip" }), "decrypted-folder.zip");
-    log.textContent = "解密完成，已生成 zip。";
+    log.textContent = "正在读取标准密码 ZIP...";
+    const { BlobReader, BlobWriter, ZipReader, ZipWriter } = await import(CDN.zipjs);
+    const reader = new ZipReader(new BlobReader(file), { password });
+    const entries = await reader.getEntries();
+    const writer = new ZipWriter(new BlobWriter("application/zip"));
+    const fileEntries = entries.filter((entry) => !entry.directory);
+
+    for (let index = 0; index < fileEntries.length; index += 1) {
+      const entry = fileEntries[index];
+      log.textContent = `正在解密第 ${index + 1}/${fileEntries.length} 个文件...`;
+      const blob = await entry.getData(new BlobWriter(), { password });
+      await writer.add(entry.filename, new BlobReader(blob), {
+        lastModDate: entry.lastModDate,
+      });
+    }
+
+    await reader.close();
+    const outputBlob = await writer.close();
+    downloadBlob(outputBlob, "decrypted-folder.zip");
+    log.textContent = "解密完成，已生成不带密码的 zip。";
     showToast("解密完成");
   } catch (error) {
     log.textContent = "解密失败，请检查文件和密码。";
     showToast("解密失败，请检查密码是否正确", true);
   }
-}
-
-async function readEncryptedPackage(file) {
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  if (file.name.toLowerCase().endsWith(".enc")) {
-    return bytes;
-  }
-
-  const { default: JSZip } = await import(CDN.jszip);
-  const zip = await JSZip.loadAsync(bytes);
-  const payload = zip.file("encrypted-data.bin");
-  if (!payload) {
-    throw new Error("加密 zip 包中没有找到 encrypted-data.bin");
-  }
-  return new Uint8Array(await payload.async("uint8array"));
 }
 
 function setupMirrorTool() {
@@ -1980,40 +1987,6 @@ function shuffle(items) {
   return items;
 }
 
-async function encryptBytes(bytes, password) {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await deriveKey(password, salt);
-  const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, bytes));
-  const output = new Uint8Array(4 + salt.length + iv.length + encrypted.length);
-  output.set(new TextEncoder().encode("TBX1"), 0);
-  output.set(salt, 4);
-  output.set(iv, 20);
-  output.set(encrypted, 32);
-  return output;
-}
-
-async function decryptBytes(bytes, password) {
-  const magic = new TextDecoder().decode(bytes.slice(0, 4));
-  if (magic !== "TBX1") throw new Error("文件格式不正确");
-  const salt = bytes.slice(4, 20);
-  const iv = bytes.slice(20, 32);
-  const payload = bytes.slice(32);
-  const key = await deriveKey(password, salt);
-  return new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, payload));
-}
-
-async function deriveKey(password, salt) {
-  const baseKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
-  return crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt, iterations: 180000, hash: "SHA-256" },
-    baseKey,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt", "decrypt"],
-  );
-}
-
 function loadImageFile(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -2034,6 +2007,14 @@ function readAsDataUrl(file) {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
+}
+
+function safeZipEntryName(name) {
+  return String(name || "file")
+    .replace(/\\/g, "/")
+    .split("/")
+    .filter((part) => part && part !== "." && part !== "..")
+    .join("/") || "file";
 }
 
 function canvasToBlob(canvas, type, quality) {
