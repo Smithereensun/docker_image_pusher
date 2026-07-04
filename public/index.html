@@ -50,6 +50,7 @@
               <p>粘贴 JSON 后可格式化、压缩，或查看可折叠的层级结构。</p>
             </div>
             <div class="toolbar">
+              <button class="secondary" type="button" id="jsonExampleButton">示例</button>
               <button type="button" id="jsonFormatButton">格式化</button>
               <button class="secondary" type="button" id="jsonMinifyButton">压缩</button>
               <button class="secondary" type="button" id="jsonCopyButton">复制</button>
@@ -59,7 +60,7 @@
           <div class="split-grid">
             <div class="field-block">
               <label for="jsonInput">JSON 内容</label>
-              <textarea id="jsonInput" class="code-area" spellcheck="false" placeholder='{"name":"tools","enabled":true}'></textarea>
+              <textarea id="jsonInput" class="code-area json-input" spellcheck="false" placeholder='{"name":"tools","enabled":true}'></textarea>
             </div>
             <div class="field-block">
               <label>树视图</label>

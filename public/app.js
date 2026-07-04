@@ -64,6 +64,60 @@ const phonePrefixes = phonePrefixGroups.flatMap((group) => group.prefixes);
 const familyNames = "赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨朱秦尤许何吕施张孔曹严华金魏陶姜谢邹喻柏水窦章云苏潘葛范彭郎鲁韦昌马苗凤花方俞任袁柳鲍史唐费廉岑薛雷贺倪汤滕殷罗毕郝邬安常乐于时傅皮卞齐康伍余元卜顾孟平黄和穆萧尹姚邵汪祁毛禹狄米贝明臧计伏成戴谈宋庞熊纪舒项祝董梁杜阮蓝闵季贾路江童颜郭梅盛林钟徐邱骆高夏蔡田胡凌霍虞万柯管卢莫房裘解应宗丁宣邓杭洪包左石崔吉龚程邢裴陆荣翁荀惠甄曲封储靳段富巫焦巴牧山谷车侯全班仰秋仲伊宫宁仇栾甘厉祖武符刘景詹龙叶幸司郜黎薄印白怀蒲从索咸赖卓蔺屠蒙池乔阴胥苍双闻翟谭劳逄姬申扶冉宰雍桑桂牛寿通边燕浦尚农温庄晏柴瞿阎连茹习艾鱼容向古易慎戈廖庾居衡步都耿满弘匡国文寇广东殳利蔚越师巩厍聂晁勾敖融冷辛阚简饶曾沙养鞠丰巢关蒯相查荆红游竺权盖益桓公";
 const givenNameChars = "一凡子文明华伟刚勇毅俊峰强军平保东力成康星光天达安岩中茂进林有坚和彪博诚先敬震振壮会思群豪心邦承乐绍功松善厚庆磊民友裕河哲江超浩亮政谦亨奇固之轮翰朗伯宏言若鸣朋斌梁栋维启克伦翔旭鹏泽晨辰士以建家致树炎德行时泰盛雄琛钧冠策腾榕风航弘义兴良飞彬富顺信杰涛昌贵福生龙元全国胜学祥才发武新利清飞彤霞香月莺媛艳瑞凡佳嘉琼勤珍贞莉兰凤洁梅琳素云莲真环雪荣爱妹惠珠翠雅芝玉萍红娥玲芬芳燕彩春菊勤晶妍茜秋珊莎锦黛青倩婷姣婉娴瑾颖露瑶怡婵雁蓓纨仪荷丹蓉眉君琴蕊薇菁梦岚苑婕馨瑗琰韵融园艺咏卿聪澜纯毓悦昭冰爽琬茗羽希宁欣飘育滢馥筠柔竹霭凝晓欢霄枫芸菲寒伊亚宜可姬舒影荔枝思丽秀娟英慧巧美娜静淑惠珠莹雪琳晗涵诗琪梦洁";
 
+const jsonExample = {
+  BigId: "12345678912345678",
+  id2: 54321,
+  username: "BeJson",
+  email: "developer@bejson.com",
+  isActive: true,
+  isVerified: false,
+  profile: {
+    firstName: "小明",
+    lastName: "李",
+    fullName: "李小明",
+    englishName: "Alex Li",
+    age: 28,
+    height: 175.5,
+    weight: null,
+    avatar: "https://example.com/avatars/user.jpg",
+    bio: "我是一名热爱技术的全栈开发工程师，专注于前端和后端开发。拥有5年的开发经验，熟练掌握多种编程语言和框架。喜欢探索新技术，关注人工智能发展。业余时间喜欢阅读、写博客分享经验，也热爱摄影和旅行。",
+    longDescription: "作为一名资深软件开发工程师，我在过去的几年中积累了丰富的项目经验。我的技术栈涵盖了现代Web开发的各个方面：前端方面精通主流框架，对现代构建工具有深入理解；后端方面熟练使用多种语言，对系统架构和性能优化有丰富实践经验。\n\n在工作中，我参与了多个大型项目的开发，负责核心功能的设计和实现。我注重代码质量和团队协作，善于解决复杂的技术问题。同时，我也是开源社区的积极参与者，维护着几个开源项目。\n\n除了技术工作，我还热衷于知识分享。我经常在技术博客上发表文章，分享开发经验和技术见解。我相信技术的力量能够改变世界，也相信持续学习是保持竞争力的关键。\n\n在个人生活方面，我喜欢平衡工作和生活。摄影让我学会观察美好，旅行让我开阔视野，阅读让我保持思考。我认为多元化的兴趣爱好能够为技术工作带来更多灵感。",
+    location: {
+      country: "中国",
+      countryCode: "CN",
+      province: "广东省",
+      city: "深圳",
+      district: "南山区",
+      street: "科技园南区",
+      postalCode: "518057",
+      coordinates: {
+        latitude: 22.5431,
+        longitude: 113.9344,
+      },
+      timezone: "Asia/Shanghai",
+      description: "位于深圳科技园区，周边有众多科技公司和创新企业",
+    },
+  },
+  preferences: {
+    theme: "dark",
+    language: "zh-CN",
+    secondaryLanguage: "en-US",
+    notifications: {
+      email: true,
+      push: false,
+      sms: true,
+      wechat: true,
+    },
+    privacy: {
+      profileVisible: true,
+      showEmail: false,
+      allowMessages: true,
+      showPhoneNumber: false,
+    },
+  },
+  tags: ["全栈开发", "前端专家", "技术分享", "开源贡献者", "摄影爱好者"],
+};
+
 const state = {
   password: localStorage.getItem("docker-images-pusher-password") || "",
   exportSelections: new Map(),
@@ -212,10 +266,18 @@ function setupNavigation() {
 function setupJsonTool() {
   const input = $("#jsonInput");
   const tree = $("#jsonTree");
+  autoResizeTextarea(input);
+  $("#jsonExampleButton").addEventListener("click", () => {
+    input.value = JSON.stringify(jsonExample, null, 2);
+    autoResizeTextarea(input);
+    renderJsonTree(jsonExample, tree);
+    showToast("已填入示例 JSON");
+  });
   $("#jsonFormatButton").addEventListener("click", () => {
     const data = parseJsonStrict(input.value);
     if (!data.ok) return showToast(data.error, true);
     input.value = JSON.stringify(data.value, null, 2);
+    autoResizeTextarea(input);
     renderJsonTree(data.value, tree);
     showToast("JSON 已格式化");
   });
@@ -223,15 +285,18 @@ function setupJsonTool() {
     const data = parseJsonStrict(input.value);
     if (!data.ok) return showToast(data.error, true);
     input.value = JSON.stringify(data.value);
+    autoResizeTextarea(input);
     renderJsonTree(data.value, tree);
     showToast("JSON 已压缩");
   });
   $("#jsonCopyButton").addEventListener("click", () => copyText(input.value));
   $("#jsonClearButton").addEventListener("click", () => {
     input.value = "";
+    autoResizeTextarea(input);
     tree.textContent = "等待输入 JSON";
   });
   input.addEventListener("input", () => {
+    autoResizeTextarea(input);
     const data = parseJsonStrict(input.value);
     if (data.ok) renderJsonTree(data.value, tree);
   });
@@ -2199,6 +2264,15 @@ function revokeUrl(key) {
 function copyText(value) {
   if (!value) return showToast("没有可复制的内容", true);
   navigator.clipboard.writeText(value).then(() => showToast("已复制到剪贴板"), () => showToast("复制失败", true));
+}
+
+function autoResizeTextarea(textarea) {
+  textarea.style.height = "auto";
+  const minHeight = Number(textarea.dataset.minHeight || 420);
+  const maxHeight = Number(textarea.dataset.maxHeight || 1400);
+  const nextHeight = Math.max(minHeight, Math.min(maxHeight, textarea.scrollHeight + 2));
+  textarea.style.height = `${nextHeight}px`;
+  textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
 }
 
 function parseJsonStrict(text) {

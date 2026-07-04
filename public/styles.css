@@ -511,6 +511,12 @@ p {
   font-size: 14px;
 }
 
+.json-input {
+  min-height: 420px;
+  resize: none;
+  white-space: pre;
+}
+
 .result-area {
   min-height: 340px;
   background: #fbfcfd;
