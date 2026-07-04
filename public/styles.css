@@ -516,6 +516,7 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  min-height: 36px;
   margin-bottom: 8px;
 }
 
@@ -525,9 +526,16 @@ p {
 
 .field-label-row > div {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.field-label-row .link-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
 }
 
 .json-menu-group {
@@ -958,14 +966,25 @@ canvas {
 }
 
 .merge-image-order {
-  display: inline-grid;
-  min-height: 30px;
+  display: grid;
+  width: 34px;
+  height: 34px;
   place-items: center;
+  align-self: center;
+  justify-self: center;
   border-radius: 8px;
   background: #eef3f5;
   color: var(--muted);
   font-size: 13px;
   font-weight: 850;
+  line-height: 1;
+  overflow-wrap: normal;
+}
+
+.file-queue-row .merge-image-order,
+.merge-image-row .merge-image-order {
+  display: grid;
+  overflow-wrap: normal;
 }
 
 .merge-image-row img {
