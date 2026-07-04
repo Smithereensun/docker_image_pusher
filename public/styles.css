@@ -1061,28 +1061,9 @@ canvas {
 .image-list-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   margin-bottom: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-  padding: 14px;
-}
-
-.image-list-head strong,
-.image-list-head span {
-  display: block;
-}
-
-.image-list-head strong {
-  font-size: 16px;
-}
-
-.image-list-head span {
-  margin-top: 3px;
-  color: var(--muted);
-  font-size: 13px;
 }
 
 .image-list-actions {

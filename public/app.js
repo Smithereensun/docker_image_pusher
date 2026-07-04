@@ -166,7 +166,6 @@ const elements = {
   saveButton: $("#saveButton"),
   runButton: $("#runButton"),
   exportButton: $("#exportButton"),
-  downloadMeta: $("#downloadMeta"),
   selectAllExportsButton: $("#selectAllExportsButton"),
   clearExportsButton: $("#clearExportsButton"),
   downloadsRefreshButton: $("#downloadsRefreshButton"),
@@ -1881,9 +1880,7 @@ function renderValidation(results) {
 }
 
 function renderDownloadMeta() {
-  const entries = syncExportSelections();
-  const selectedCount = selectedExportEntries().length;
-  elements.downloadMeta.textContent = entries.length ? `已选择 ${selectedCount}/${entries.length} 个镜像，生成完成后可直接下载。` : "当前没有可导出的有效镜像。";
+  syncExportSelections();
 }
 
 function syncExportSelections() {
