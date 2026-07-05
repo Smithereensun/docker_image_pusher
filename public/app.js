@@ -6,6 +6,8 @@ const CDN = {
   pdfWorker: "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs",
 };
 
+let pdfjsModulePromise;
+
 const chars = {
   lower: "abcdefghijklmnopqrstuvwxyz",
   upper: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
@@ -135,10 +137,23 @@ const state = {
     folder: [],
   },
   nextFileQueueId: 1,
+  nextWatermarkRegionId: 1,
   mergedImageUrl: "",
   processedImageUrl: "",
   resizeSource: null,
   resizeOriginalBytes: 0,
+  imageWatermarkSource: null,
+  imageWatermarkRegions: [],
+  imageWatermarkDraft: null,
+  pdfWatermarkBytes: null,
+  pdfWatermarkDoc: null,
+  pdfWatermarkFileName: "",
+  pdfWatermarkPage: 1,
+  pdfWatermarkTotalPages: 0,
+  pdfWatermarkRegions: [],
+  pdfWatermarkDraft: null,
+  pdfWatermarkBaseCanvas: null,
+  pdfWatermarkPreviewToken: 0,
   signatureMode: "typed",
   drawingSignature: false,
   lastSignaturePoint: null,
@@ -174,6 +189,8 @@ const elements = {
   validationList: $("#validationList"),
   runsRefreshButton: $("#runsRefreshButton"),
   runsList: $("#runsList"),
+  imageWatermarkCanvas: $("#imageWatermarkCanvas"),
+  pdfWatermarkCanvas: $("#pdfWatermarkCanvas"),
 };
 
 init();
@@ -187,7 +204,9 @@ function init() {
   setupBase64Tool();
   setupImageConvertTool();
   setupResizeTool();
+  setupImageWatermarkTool();
   setupPdfTools();
+  setupPdfWatermarkTool();
   setupCryptoTool();
   setupMirrorTool();
   enhanceNativeControls();
@@ -1210,6 +1229,159 @@ function setupResizeTool() {
   });
 }
 
+function setupImageWatermarkTool() {
+  const input = $("#imageWatermarkFile");
+  if (!input) return;
+
+  bindSelectionCanvas({
+    canvas: elements.imageWatermarkCanvas,
+    isEnabled: () => Boolean(state.imageWatermarkSource),
+    onDraftChange: (draft) => {
+      state.imageWatermarkDraft = draft;
+      drawImageWatermarkPreview();
+    },
+    onComplete: (rect, canvas) => {
+      state.imageWatermarkDraft = null;
+      state.imageWatermarkRegions.push(createNormalizedRegion(rect, canvas, { id: state.nextWatermarkRegionId++ }));
+      renderImageWatermarkRegionList();
+      drawImageWatermarkPreview();
+      showToast("已添加去水印区域");
+    },
+  });
+
+  input.addEventListener("change", async () => {
+    const file = input.files[0];
+    revokeLoadedImage(state.imageWatermarkSource);
+    state.imageWatermarkSource = null;
+    state.imageWatermarkRegions = [];
+    state.imageWatermarkDraft = null;
+    renderImageWatermarkRegionList();
+    if (!file) {
+      drawImageWatermarkPreview();
+      return;
+    }
+
+    try {
+      state.imageWatermarkSource = await loadImageFile(file);
+      drawImageWatermarkPreview();
+      renderImageWatermarkRegionList();
+      showToast("图片已加载，可开始框选区域");
+    } catch (error) {
+      $("#imageWatermarkMeta").textContent = error.message;
+      showToast(error.message, true);
+    }
+  });
+
+  $("#imageWatermarkQuality").addEventListener("input", () => {
+    $("#imageWatermarkQualityLabel").textContent = $("#imageWatermarkQuality").value;
+  });
+  $("#undoImageWatermarkRegionButton").addEventListener("click", () => {
+    if (!state.imageWatermarkRegions.length) return showToast("暂无可撤销的区域", true);
+    state.imageWatermarkRegions.pop();
+    renderImageWatermarkRegionList();
+    drawImageWatermarkPreview();
+  });
+  $("#clearImageWatermarkRegionsButton").addEventListener("click", () => {
+    state.imageWatermarkRegions = [];
+    state.imageWatermarkDraft = null;
+    renderImageWatermarkRegionList();
+    drawImageWatermarkPreview();
+  });
+  $("#imageWatermarkRegionList").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-remove-image-watermark-region]");
+    if (!button) return;
+    state.imageWatermarkRegions = state.imageWatermarkRegions.filter((item) => item.id !== Number(button.dataset.removeImageWatermarkRegion));
+    renderImageWatermarkRegionList();
+    drawImageWatermarkPreview();
+  });
+  $("#processImageWatermarkButton").addEventListener("click", processImageWatermark);
+
+  drawImageWatermarkPreview();
+}
+
+function drawImageWatermarkPreview() {
+  const canvas = elements.imageWatermarkCanvas;
+  const meta = $("#imageWatermarkMeta");
+  const source = state.imageWatermarkSource;
+  if (!source) {
+    canvas.width = 0;
+    canvas.height = 0;
+    meta.textContent = "选择图片后，在预览区按住鼠标拖拽即可添加区域。";
+    return;
+  }
+
+  const fitted = fitWithin(source.width, source.height, 860, 620);
+  canvas.width = fitted.width;
+  canvas.height = fitted.height;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawCanvasBackdrop(ctx, canvas.width, canvas.height);
+  ctx.drawImage(source.image, 0, 0, canvas.width, canvas.height);
+  drawNormalizedRegions(ctx, state.imageWatermarkRegions, canvas.width, canvas.height);
+  drawDraftRegion(ctx, state.imageWatermarkDraft);
+  meta.textContent = `原图 ${source.width} x ${source.height}，已框选 ${state.imageWatermarkRegions.length} 个区域。`;
+}
+
+function renderImageWatermarkRegionList() {
+  const list = $("#imageWatermarkRegionList");
+  const source = state.imageWatermarkSource;
+  if (!source || !state.imageWatermarkRegions.length) {
+    list.textContent = "尚未框选区域。";
+    return;
+  }
+
+  list.innerHTML = state.imageWatermarkRegions
+    .map((region, index) => {
+      const rect = normalizedRegionToRect(region, source.width, source.height);
+      return `
+        <div class="file-row watermark-region-row">
+          <div>
+            <strong>区域 ${index + 1}</strong>
+            <span>x ${rect.x} · y ${rect.y} · ${rect.width} x ${rect.height}</span>
+          </div>
+          <button class="row-action danger" type="button" data-remove-image-watermark-region="${region.id}">删除</button>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+async function processImageWatermark() {
+  const file = $("#imageWatermarkFile").files[0];
+  const source = state.imageWatermarkSource;
+  if (!file || !source) return showToast("请先选择图片", true);
+  if (!state.imageWatermarkRegions.length) return showToast("请先框选至少一个区域", true);
+
+  try {
+    const outputType = resolveImageOutputType(file, $("#imageWatermarkOutputType").value);
+    const canvas = document.createElement("canvas");
+    canvas.width = source.width;
+    canvas.height = source.height;
+    const ctx = canvas.getContext("2d");
+    if (outputType === "image/jpeg") {
+      ctx.fillStyle = $("#imageWatermarkBackground").value;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    ctx.drawImage(source.image, 0, 0, canvas.width, canvas.height);
+    applyWatermarkRegions(canvas, state.imageWatermarkRegions, {
+      width: source.width,
+      height: source.height,
+      mode: $("#imageWatermarkMode").value,
+      fillColor: $("#imageWatermarkBackground").value,
+    });
+    const blob = await canvasToBlob(canvas, outputType, readFloat("#imageWatermarkQuality", 0.1, 1, 0.92));
+    if (!blob) throw new Error(`浏览器不支持导出 ${formatImageType(outputType)}`);
+    downloadBlob(blob, buildProcessedFilename(file.name, outputType));
+    $("#imageWatermarkMeta").textContent = `处理完成，已按 ${formatImageType(outputType)} 导出。`;
+    showToast("图片去水印完成");
+  } catch (error) {
+    showToast(`图片去水印失败：${error.message}`, true);
+    $("#imageWatermarkMeta").textContent = error.message;
+  }
+}
+
 function setupPdfTools() {
   setupFileQueue({
     queueName: "mergePdf",
@@ -1233,6 +1405,282 @@ function setupPdfTools() {
   $("#imagesToPdfButton").addEventListener("click", imagesToPdf);
 }
 
+function setupPdfWatermarkTool() {
+  const input = $("#pdfWatermarkFile");
+  if (!input) return;
+
+  bindSelectionCanvas({
+    canvas: elements.pdfWatermarkCanvas,
+    isEnabled: () => Boolean(state.pdfWatermarkBaseCanvas),
+    onDraftChange: (draft) => {
+      state.pdfWatermarkDraft = draft;
+      drawPdfWatermarkPreview();
+    },
+    onComplete: (rect, canvas) => {
+      state.pdfWatermarkDraft = null;
+      state.pdfWatermarkRegions.push(createNormalizedRegion(rect, canvas, {
+        id: state.nextWatermarkRegionId++,
+        scope: $("#pdfWatermarkApplyAllPages").checked ? "all" : "page",
+        pageNumber: state.pdfWatermarkPage,
+      }));
+      renderPdfWatermarkRegionList();
+      drawPdfWatermarkPreview();
+      showToast("PDF 区域已添加");
+    },
+  });
+
+  input.addEventListener("change", async () => {
+    const file = input.files[0];
+    state.pdfWatermarkBytes = null;
+    state.pdfWatermarkDoc = null;
+    state.pdfWatermarkFileName = "";
+    state.pdfWatermarkPage = 1;
+    state.pdfWatermarkTotalPages = 0;
+    state.pdfWatermarkRegions = [];
+    state.pdfWatermarkDraft = null;
+    state.pdfWatermarkBaseCanvas = null;
+    updatePdfWatermarkPageIndicator();
+    renderPdfWatermarkRegionList();
+    drawPdfWatermarkPreview();
+    if (!file) {
+      $("#pdfWatermarkLog").textContent = "等待选择 PDF。";
+      return;
+    }
+
+    try {
+      $("#pdfWatermarkLog").textContent = "正在加载 PDF...";
+      const pdfjs = await getPdfJsModule();
+      state.pdfWatermarkBytes = new Uint8Array(await file.arrayBuffer());
+      state.pdfWatermarkDoc = await pdfjs.getDocument({ data: state.pdfWatermarkBytes.slice() }).promise;
+      state.pdfWatermarkFileName = file.name;
+      state.pdfWatermarkTotalPages = state.pdfWatermarkDoc.numPages;
+      $("#pdfWatermarkPageInput").max = String(state.pdfWatermarkTotalPages);
+      $("#pdfWatermarkPageInput").value = "1";
+      updatePdfWatermarkPageIndicator();
+      await renderPdfWatermarkPreviewPage();
+      $("#pdfWatermarkLog").textContent = `PDF 已加载，共 ${state.pdfWatermarkTotalPages} 页。`;
+      showToast("PDF 已加载，可开始框选区域");
+    } catch (error) {
+      state.pdfWatermarkBytes = null;
+      state.pdfWatermarkDoc = null;
+      state.pdfWatermarkFileName = "";
+      state.pdfWatermarkBaseCanvas = null;
+      $("#pdfWatermarkLog").textContent = error.message;
+      $("#pdfWatermarkMeta").textContent = error.message;
+      showToast(`PDF 加载失败：${error.message}`, true);
+    }
+  });
+
+  $("#pdfWatermarkMode").addEventListener("change", updatePdfWatermarkModeUi);
+  $("#pdfWatermarkPrevPageButton").addEventListener("click", () => changePdfWatermarkPage(state.pdfWatermarkPage - 1));
+  $("#pdfWatermarkNextPageButton").addEventListener("click", () => changePdfWatermarkPage(state.pdfWatermarkPage + 1));
+  $("#pdfWatermarkPageInput").addEventListener("change", () => changePdfWatermarkPage(Number($("#pdfWatermarkPageInput").value)));
+  $("#undoPdfWatermarkRegionButton").addEventListener("click", () => {
+    if (!state.pdfWatermarkRegions.length) return showToast("暂无可撤销的区域", true);
+    state.pdfWatermarkRegions.pop();
+    renderPdfWatermarkRegionList();
+    drawPdfWatermarkPreview();
+  });
+  $("#clearPdfWatermarkRegionsButton").addEventListener("click", () => {
+    state.pdfWatermarkRegions = [];
+    state.pdfWatermarkDraft = null;
+    renderPdfWatermarkRegionList();
+    drawPdfWatermarkPreview();
+  });
+  $("#pdfWatermarkRegionList").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-remove-pdf-watermark-region]");
+    if (!button) return;
+    state.pdfWatermarkRegions = state.pdfWatermarkRegions.filter((item) => item.id !== Number(button.dataset.removePdfWatermarkRegion));
+    renderPdfWatermarkRegionList();
+    drawPdfWatermarkPreview();
+  });
+  $("#processPdfWatermarkButton").addEventListener("click", processPdfWatermark);
+
+  updatePdfWatermarkModeUi();
+  updatePdfWatermarkPageIndicator();
+  drawPdfWatermarkPreview();
+}
+
+function updatePdfWatermarkModeUi() {
+  const rasterMode = $("#pdfWatermarkMode").value !== "cover";
+  $("#pdfWatermarkScale").disabled = !rasterMode;
+}
+
+async function changePdfWatermarkPage(pageNumber) {
+  if (!state.pdfWatermarkDoc) return;
+  const nextPage = Math.max(1, Math.min(state.pdfWatermarkTotalPages, Number(pageNumber) || 1));
+  state.pdfWatermarkPage = nextPage;
+  $("#pdfWatermarkPageInput").value = String(nextPage);
+  updatePdfWatermarkPageIndicator();
+  await renderPdfWatermarkPreviewPage();
+}
+
+async function renderPdfWatermarkPreviewPage() {
+  const canvas = elements.pdfWatermarkCanvas;
+  const meta = $("#pdfWatermarkMeta");
+  if (!state.pdfWatermarkDoc) {
+    state.pdfWatermarkBaseCanvas = null;
+    canvas.width = 0;
+    canvas.height = 0;
+    meta.textContent = "选择 PDF 后，在当前页预览区拖拽框选要处理的区域。";
+    return;
+  }
+
+  const token = ++state.pdfWatermarkPreviewToken;
+  try {
+    meta.textContent = `正在渲染第 ${state.pdfWatermarkPage} 页预览...`;
+    const page = await state.pdfWatermarkDoc.getPage(state.pdfWatermarkPage);
+    if (token !== state.pdfWatermarkPreviewToken) return;
+    const baseViewport = page.getViewport({ scale: 1 });
+    const scale = fittedScale(baseViewport.width, baseViewport.height, 860, 620, 2);
+    const viewport = page.getViewport({ scale });
+    const baseCanvas = document.createElement("canvas");
+    baseCanvas.width = Math.max(1, Math.round(viewport.width));
+    baseCanvas.height = Math.max(1, Math.round(viewport.height));
+    await page.render({ canvasContext: baseCanvas.getContext("2d"), viewport }).promise;
+    if (token !== state.pdfWatermarkPreviewToken) return;
+    state.pdfWatermarkBaseCanvas = baseCanvas;
+    drawPdfWatermarkPreview();
+  } catch (error) {
+    state.pdfWatermarkBaseCanvas = null;
+    canvas.width = 0;
+    canvas.height = 0;
+    meta.textContent = error.message;
+    $("#pdfWatermarkLog").textContent = error.message;
+    showToast(`PDF 预览失败：${error.message}`, true);
+  }
+}
+
+function drawPdfWatermarkPreview() {
+  const canvas = elements.pdfWatermarkCanvas;
+  const meta = $("#pdfWatermarkMeta");
+  const baseCanvas = state.pdfWatermarkBaseCanvas;
+  if (!baseCanvas) {
+    canvas.width = 0;
+    canvas.height = 0;
+    if (state.pdfWatermarkDoc) meta.textContent = "正在准备预览...";
+    return;
+  }
+
+  canvas.width = baseCanvas.width;
+  canvas.height = baseCanvas.height;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(baseCanvas, 0, 0);
+  drawNormalizedRegions(ctx, pdfWatermarkRegionsForPage(state.pdfWatermarkPage), canvas.width, canvas.height, { includeScope: true });
+  drawDraftRegion(ctx, state.pdfWatermarkDraft);
+  meta.textContent = `第 ${state.pdfWatermarkPage} / ${state.pdfWatermarkTotalPages} 页，当前页可见 ${pdfWatermarkRegionsForPage(state.pdfWatermarkPage).length} 个区域。`;
+}
+
+function renderPdfWatermarkRegionList() {
+  const list = $("#pdfWatermarkRegionList");
+  if (!state.pdfWatermarkRegions.length) {
+    list.textContent = "尚未框选区域。";
+    return;
+  }
+
+  list.innerHTML = state.pdfWatermarkRegions
+    .map((region, index) => {
+      const scope = region.scope === "all" ? "全部页面" : `第 ${region.pageNumber} 页`;
+      return `
+        <div class="file-row watermark-region-row">
+          <div>
+            <strong>区域 ${index + 1}</strong>
+            <span>${scope} · left ${Math.round(region.x * 100)}% · top ${Math.round(region.y * 100)}% · width ${Math.round(region.width * 100)}% · height ${Math.round(region.height * 100)}%</span>
+          </div>
+          <button class="row-action danger" type="button" data-remove-pdf-watermark-region="${region.id}">删除</button>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function updatePdfWatermarkPageIndicator() {
+  const indicator = $("#pdfWatermarkPageIndicator");
+  indicator.textContent = state.pdfWatermarkDoc ? `第 ${state.pdfWatermarkPage} / ${state.pdfWatermarkTotalPages} 页` : "未加载 PDF";
+}
+
+function pdfWatermarkRegionsForPage(pageNumber) {
+  return state.pdfWatermarkRegions.filter((region) => region.scope === "all" || region.pageNumber === pageNumber);
+}
+
+async function processPdfWatermark() {
+  if (!state.pdfWatermarkBytes || !state.pdfWatermarkDoc) return showToast("请先选择 PDF", true);
+  if (!state.pdfWatermarkRegions.length) return showToast("请先框选至少一个区域", true);
+
+  const mode = $("#pdfWatermarkMode").value;
+  const log = $("#pdfWatermarkLog");
+  try {
+    if (mode === "cover") {
+      log.textContent = "正在生成保留结构的 PDF...";
+      const { PDFDocument, rgb } = await import(CDN.pdfLib);
+      const pdf = await PDFDocument.load(state.pdfWatermarkBytes.slice());
+      const fill = hexToRgb($("#pdfWatermarkFillColor").value);
+      const pages = pdf.getPages();
+      pages.forEach((page, index) => {
+        const regions = pdfWatermarkRegionsForPage(index + 1);
+        const pageWidth = page.getWidth();
+        const pageHeight = page.getHeight();
+        regions.forEach((region) => {
+          const rect = normalizedRegionToRect(region, pageWidth, pageHeight);
+          page.drawRectangle({
+            x: rect.x,
+            y: pageHeight - rect.y - rect.height,
+            width: rect.width,
+            height: rect.height,
+            color: rgb(fill.r, fill.g, fill.b),
+          });
+        });
+      });
+      const bytes = await pdf.save();
+      downloadBlob(new Blob([bytes], { type: "application/pdf" }), buildProcessedFilename(state.pdfWatermarkFileName, "application/pdf"));
+      log.textContent = `完成，已处理 ${pages.length} 页。`;
+      showToast("PDF 去水印完成");
+      return;
+    }
+
+    log.textContent = "正在逐页重建 PDF，请稍候...";
+    const { PDFDocument } = await import(CDN.pdfLib);
+    const rebuilt = await PDFDocument.create();
+    const renderScale = readFloat("#pdfWatermarkScale", 1, 3, 2);
+
+    for (let pageNumber = 1; pageNumber <= state.pdfWatermarkTotalPages; pageNumber += 1) {
+      log.textContent = `正在处理第 ${pageNumber}/${state.pdfWatermarkTotalPages} 页...`;
+      const page = await state.pdfWatermarkDoc.getPage(pageNumber);
+      const baseViewport = page.getViewport({ scale: 1 });
+      const renderViewport = page.getViewport({ scale: renderScale });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(renderViewport.width));
+      canvas.height = Math.max(1, Math.round(renderViewport.height));
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport: renderViewport }).promise;
+      applyWatermarkRegions(canvas, pdfWatermarkRegionsForPage(pageNumber), {
+        width: canvas.width,
+        height: canvas.height,
+        mode,
+        fillColor: $("#pdfWatermarkFillColor").value,
+      });
+      const blob = await canvasToBlob(canvas, "image/png");
+      if (!blob) throw new Error("浏览器无法导出 PDF 重建所需的页面图片");
+      const embedded = await rebuilt.embedPng(await blob.arrayBuffer());
+      const outputPage = rebuilt.addPage([baseViewport.width, baseViewport.height]);
+      outputPage.drawImage(embedded, {
+        x: 0,
+        y: 0,
+        width: baseViewport.width,
+        height: baseViewport.height,
+      });
+    }
+
+    const bytes = await rebuilt.save();
+    downloadBlob(new Blob([bytes], { type: "application/pdf" }), buildProcessedFilename(state.pdfWatermarkFileName, "application/pdf"));
+    log.textContent = `完成，已重建 ${state.pdfWatermarkTotalPages} 页 PDF。`;
+    showToast("PDF 去水印完成");
+  } catch (error) {
+    log.textContent = error.message;
+    showToast(`PDF 去水印失败：${error.message}`, true);
+  }
+}
+
 async function mergePdfs() {
   const files = fileQueueFiles("mergePdf");
   if (files.length < 2) return showToast("请至少选择两个 PDF", true);
@@ -1253,16 +1701,25 @@ async function mergePdfs() {
   }
 }
 
+async function getPdfJsModule() {
+  if (!pdfjsModulePromise) {
+    pdfjsModulePromise = import(CDN.pdfjs).then((pdfjs) => {
+      pdfjs.GlobalWorkerOptions.workerSrc = CDN.pdfWorker;
+      return pdfjs;
+    });
+  }
+  return pdfjsModulePromise;
+}
+
 async function pdfToImages() {
   const file = $("#pdfImageFile").files[0];
   if (!file) return showToast("请先选择 PDF", true);
   const log = $("#pdfImagesLog");
   try {
     log.textContent = "正在加载 PDF 处理库...";
-    const [pdfjs, { default: JSZip }] = await Promise.all([import(CDN.pdfjs), import(CDN.jszip)]);
-    pdfjs.GlobalWorkerOptions.workerSrc = CDN.pdfWorker;
+    const [pdfjs, { default: JSZip }] = await Promise.all([getPdfJsModule(), import(CDN.jszip)]);
     const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
-    const scale = readNumber("#pdfImageScale", 1, 4, 2);
+    const scale = readFloat("#pdfImageScale", 1, 4, 2);
     const zip = new JSZip();
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       log.textContent = `正在转换第 ${pageNumber}/${pdf.numPages} 页...`;
@@ -2076,6 +2533,333 @@ function shuffle(items) {
   return items;
 }
 
+function revokeLoadedImage(source) {
+  if (source?.url) URL.revokeObjectURL(source.url);
+}
+
+function fitWithin(width, height, maxWidth, maxHeight) {
+  const scale = fittedScale(width, height, maxWidth, maxHeight, 1);
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+}
+
+function fittedScale(width, height, maxWidth, maxHeight, maxScale = 1) {
+  if (!width || !height) return 1;
+  return Math.max(0.1, Math.min(maxScale, maxWidth / width, maxHeight / height));
+}
+
+function bindSelectionCanvas({ canvas, isEnabled, onDraftChange, onComplete }) {
+  let start = null;
+  let activePointerId = null;
+
+  const finish = (event, commit) => {
+    if (activePointerId !== event.pointerId || !start) return;
+    const point = canvasPointFromEvent(canvas, event) || start;
+    const rect = normalizeRect(start.x, start.y, point.x, point.y, canvas.width, canvas.height);
+    if (canvas.hasPointerCapture(activePointerId)) canvas.releasePointerCapture(activePointerId);
+    activePointerId = null;
+    start = null;
+    onDraftChange(null);
+    if (commit && rect.width >= 6 && rect.height >= 6) onComplete(rect, canvas);
+  };
+
+  canvas.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || !isEnabled() || !canvas.width || !canvas.height) return;
+    const point = canvasPointFromEvent(canvas, event);
+    if (!point) return;
+    activePointerId = event.pointerId;
+    start = point;
+    canvas.setPointerCapture(event.pointerId);
+    onDraftChange({ x: point.x, y: point.y, width: 0, height: 0 });
+    event.preventDefault();
+  });
+
+  canvas.addEventListener("pointermove", (event) => {
+    if (activePointerId !== event.pointerId || !start) return;
+    const point = canvasPointFromEvent(canvas, event);
+    if (!point) return;
+    onDraftChange(normalizeRect(start.x, start.y, point.x, point.y, canvas.width, canvas.height));
+  });
+
+  canvas.addEventListener("pointerup", (event) => finish(event, true));
+  canvas.addEventListener("pointercancel", (event) => finish(event, false));
+}
+
+function canvasPointFromEvent(canvas, event) {
+  const bounds = canvas.getBoundingClientRect();
+  if (!bounds.width || !bounds.height) return null;
+  const scaleX = canvas.width / bounds.width;
+  const scaleY = canvas.height / bounds.height;
+  return {
+    x: Math.max(0, Math.min(canvas.width, Math.round((event.clientX - bounds.left) * scaleX))),
+    y: Math.max(0, Math.min(canvas.height, Math.round((event.clientY - bounds.top) * scaleY))),
+  };
+}
+
+function normalizeRect(x1, y1, x2, y2, maxWidth, maxHeight) {
+  const left = Math.max(0, Math.min(x1, x2));
+  const top = Math.max(0, Math.min(y1, y2));
+  const right = Math.min(maxWidth, Math.max(x1, x2));
+  const bottom = Math.min(maxHeight, Math.max(y1, y2));
+  return {
+    x: Math.round(left),
+    y: Math.round(top),
+    width: Math.max(0, Math.round(right - left)),
+    height: Math.max(0, Math.round(bottom - top)),
+  };
+}
+
+function createNormalizedRegion(rect, canvas, extra = {}) {
+  return {
+    ...extra,
+    x: clamp01(rect.x / canvas.width),
+    y: clamp01(rect.y / canvas.height),
+    width: clamp01(rect.width / canvas.width),
+    height: clamp01(rect.height / canvas.height),
+  };
+}
+
+function normalizedRegionToRect(region, width, height) {
+  const left = Math.max(0, Math.min(width, Math.round(region.x * width)));
+  const top = Math.max(0, Math.min(height, Math.round(region.y * height)));
+  const right = Math.max(left + 1, Math.min(width, Math.round((region.x + region.width) * width)));
+  const bottom = Math.max(top + 1, Math.min(height, Math.round((region.y + region.height) * height)));
+  return {
+    x: left,
+    y: top,
+    width: right - left,
+    height: bottom - top,
+  };
+}
+
+function regionRectSummary(region, width, height) {
+  return normalizedRegionToRect(region, width, height);
+}
+
+function drawCanvasBackdrop(ctx, width, height) {
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  const size = 14;
+  ctx.fillStyle = "#edf2f4";
+  for (let y = 0; y < height; y += size) {
+    for (let x = (Math.floor(y / size) % 2) * size; x < width; x += size * 2) {
+      ctx.fillRect(x, y, size, size);
+    }
+  }
+}
+
+function drawNormalizedRegions(ctx, regions, width, height, options = {}) {
+  regions.forEach((region, index) => {
+    const rect = normalizedRegionToRect(region, width, height);
+    drawOverlayRect(ctx, rect, `区域 ${index + 1}${options.includeScope ? ` · ${region.scope === "all" ? "全部页" : `第${region.pageNumber}页`}` : ""}`);
+  });
+}
+
+function drawDraftRegion(ctx, draft) {
+  if (!draft || !draft.width || !draft.height) return;
+  drawOverlayRect(ctx, draft, "拖拽中...", true);
+}
+
+function drawOverlayRect(ctx, rect, label, draft = false) {
+  ctx.save();
+  ctx.fillStyle = draft ? "rgba(199, 86, 44, 0.16)" : "rgba(199, 86, 44, 0.18)";
+  ctx.strokeStyle = draft ? "#c7562c" : "#9e3817";
+  ctx.lineWidth = 2;
+  ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+  ctx.strokeRect(rect.x + 1, rect.y + 1, Math.max(0, rect.width - 2), Math.max(0, rect.height - 2));
+  const text = String(label || "");
+  const paddingX = 8;
+  const labelWidth = Math.min(rect.width, Math.max(76, Math.round(text.length * 13)));
+  const labelY = rect.y > 30 ? rect.y - 28 : rect.y + 4;
+  ctx.fillStyle = "#9e3817";
+  ctx.fillRect(rect.x, labelY, labelWidth, 24);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = '12px "SFMono-Regular", Consolas, monospace';
+  ctx.fillText(text, rect.x + paddingX, labelY + 16);
+  ctx.restore();
+}
+
+function resolveImageOutputType(file, selectedType) {
+  if (selectedType && selectedType !== "original") return selectedType;
+  const type = file.type || imageTypeFromName(file.name);
+  return ["image/png", "image/jpeg", "image/webp"].includes(type) ? type : "image/png";
+}
+
+function buildProcessedFilename(name, type) {
+  const baseName = String(name || "processed-file").replace(/\.[^.]+$/, "") || "processed-file";
+  const extension = type === "application/pdf" ? "pdf" : imageTypeExtension(type).replace("jpeg", "jpg");
+  return `${baseName}-clean.${extension || "bin"}`;
+}
+
+function applyWatermarkRegions(canvas, regions, options) {
+  const ctx = canvas.getContext("2d");
+  regions.forEach((region) => {
+    const rect = normalizedRegionToRect(region, options.width, options.height);
+    paintWatermarkRegion(ctx, rect, options);
+  });
+}
+
+function paintWatermarkRegion(ctx, rect, options) {
+  if (!rect.width || !rect.height) return;
+  if (options.mode === "white" || options.mode === "cover") {
+    ctx.save();
+    ctx.fillStyle = options.fillColor || "#ffffff";
+    ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+    ctx.restore();
+    return;
+  }
+  if (options.mode === "blur") {
+    blurWatermarkRegion(ctx, rect);
+    return;
+  }
+  fillRegionFromNeighbors(ctx, rect, options.fillColor);
+}
+
+function blurWatermarkRegion(ctx, rect) {
+  const sample = document.createElement("canvas");
+  sample.width = Math.max(1, Math.round(rect.width / 10));
+  sample.height = Math.max(1, Math.round(rect.height / 10));
+  const sampleCtx = sample.getContext("2d");
+  sampleCtx.drawImage(ctx.canvas, rect.x, rect.y, rect.width, rect.height, 0, 0, sample.width, sample.height);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(rect.x, rect.y, rect.width, rect.height);
+  ctx.clip();
+  ctx.filter = `blur(${Math.max(4, Math.round(Math.min(rect.width, rect.height) * 0.05))}px)`;
+  ctx.drawImage(sample, 0, 0, sample.width, sample.height, rect.x, rect.y, rect.width, rect.height);
+  ctx.restore();
+}
+
+function fillRegionFromNeighbors(ctx, rect, fallbackColor) {
+  const sampleX = Math.max(0, rect.x - 1);
+  const sampleY = Math.max(0, rect.y - 1);
+  const sampleWidth = Math.min(ctx.canvas.width - sampleX, rect.width + 2);
+  const sampleHeight = Math.min(ctx.canvas.height - sampleY, rect.height + 2);
+  const imageData = ctx.getImageData(sampleX, sampleY, sampleWidth, sampleHeight);
+  const innerX = rect.x - sampleX;
+  const innerY = rect.y - sampleY;
+  const output = ctx.createImageData(rect.width, rect.height);
+  const fallback = averageNeighborColor(imageData.data, sampleWidth, sampleHeight, innerX, innerY, rect.width, rect.height, fallbackColor);
+
+  const readPixel = (x, y) => {
+    const offset = (y * sampleWidth + x) * 4;
+    return [
+      imageData.data[offset],
+      imageData.data[offset + 1],
+      imageData.data[offset + 2],
+      imageData.data[offset + 3],
+    ];
+  };
+
+  for (let y = 0; y < rect.height; y += 1) {
+    for (let x = 0; x < rect.width; x += 1) {
+      const samples = [];
+      if (innerY > 0) samples.push({ rgba: readPixel(innerX + x, innerY - 1), weight: 1 / (y + 1) });
+      if (innerY + rect.height < sampleHeight) samples.push({ rgba: readPixel(innerX + x, innerY + rect.height), weight: 1 / (rect.height - y) });
+      if (innerX > 0) samples.push({ rgba: readPixel(innerX - 1, innerY + y), weight: 1 / (x + 1) });
+      if (innerX + rect.width < sampleWidth) samples.push({ rgba: readPixel(innerX + rect.width, innerY + y), weight: 1 / (rect.width - x) });
+
+      const pixel = blendWeightedSamples(samples, fallback);
+      const offset = (y * rect.width + x) * 4;
+      output.data[offset] = pixel[0];
+      output.data[offset + 1] = pixel[1];
+      output.data[offset + 2] = pixel[2];
+      output.data[offset + 3] = pixel[3];
+    }
+  }
+
+  ctx.putImageData(output, rect.x, rect.y);
+}
+
+function averageNeighborColor(data, width, height, innerX, innerY, rectWidth, rectHeight, fallbackColor) {
+  let totalR = 0;
+  let totalG = 0;
+  let totalB = 0;
+  let totalA = 0;
+  let count = 0;
+
+  const addPixel = (x, y) => {
+    const offset = (y * width + x) * 4;
+    totalR += data[offset];
+    totalG += data[offset + 1];
+    totalB += data[offset + 2];
+    totalA += data[offset + 3];
+    count += 1;
+  };
+
+  if (innerY > 0) {
+    for (let x = 0; x < rectWidth; x += 1) addPixel(innerX + x, innerY - 1);
+  }
+  if (innerY + rectHeight < height) {
+    for (let x = 0; x < rectWidth; x += 1) addPixel(innerX + x, innerY + rectHeight);
+  }
+  if (innerX > 0) {
+    for (let y = 0; y < rectHeight; y += 1) addPixel(innerX - 1, innerY + y);
+  }
+  if (innerX + rectWidth < width) {
+    for (let y = 0; y < rectHeight; y += 1) addPixel(innerX + rectWidth, innerY + y);
+  }
+
+  if (!count) {
+    const fallback = hexToRgbBytes(fallbackColor || "#ffffff");
+    return [fallback.r, fallback.g, fallback.b, 255];
+  }
+  return [
+    Math.round(totalR / count),
+    Math.round(totalG / count),
+    Math.round(totalB / count),
+    Math.round(totalA / count),
+  ];
+}
+
+function blendWeightedSamples(samples, fallback) {
+  if (!samples.length) return fallback;
+  let totalWeight = 0;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let a = 0;
+  samples.forEach((sample) => {
+    totalWeight += sample.weight;
+    r += sample.rgba[0] * sample.weight;
+    g += sample.rgba[1] * sample.weight;
+    b += sample.rgba[2] * sample.weight;
+    a += sample.rgba[3] * sample.weight;
+  });
+  return [
+    Math.round(r / totalWeight),
+    Math.round(g / totalWeight),
+    Math.round(b / totalWeight),
+    Math.round(a / totalWeight),
+  ];
+}
+
+function hexToRgbBytes(hex) {
+  const raw = String(hex || "").replace("#", "");
+  const normalized = raw.length === 3 ? raw.split("").map((item) => item + item).join("") : raw.padEnd(6, "f").slice(0, 6);
+  const value = Number.parseInt(normalized, 16);
+  return {
+    r: (value >> 16) & 255,
+    g: (value >> 8) & 255,
+    b: value & 255,
+  };
+}
+
+function hexToRgb(hex) {
+  const rgb = hexToRgbBytes(hex);
+  return {
+    r: rgb.r / 255,
+    g: rgb.g / 255,
+    b: rgb.b / 255,
+  };
+}
+
+function clamp01(value) {
+  return Math.max(0, Math.min(1, Number(value) || 0));
+}
+
 function loadImageFile(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -2335,6 +3119,12 @@ function readNumber(selector, min, max, fallback) {
   const value = Number($(selector).value);
   if (!Number.isFinite(value)) return fallback;
   return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+function readFloat(selector, min, max, fallback) {
+  const value = Number($(selector).value);
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, value));
 }
 
 function updateCount() {
