@@ -5,3 +5,4 @@ stirlingtools/stirling-pdf:latest
 nginx
 redis
 mysql
+nacos/nacos-server:v2.3.2-slim
