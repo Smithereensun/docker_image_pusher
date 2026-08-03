@@ -6,3 +6,4 @@ nginx
 redis
 mysql
 nacos/nacos-server:v2.3.2-slim
+bellsoft/liberica-openjdk-rocky:17.0.16-cds
