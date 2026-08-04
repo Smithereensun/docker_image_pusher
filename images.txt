@@ -11,3 +11,4 @@ apache/skywalking-oap-server:10.1.0
 apache/skywalking-ui:10.1.0
 apache/skywalking-banyandb:0.7.0
 apache/skywalking-java-agent:9.6.0-java17
+bladex/sentinel-dashboard:1.8.8
