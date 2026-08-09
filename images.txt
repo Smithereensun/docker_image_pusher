@@ -13,3 +13,4 @@ apache/skywalking-banyandb:0.7.0
 apache/skywalking-java-agent:9.6.0-java17
 bladex/sentinel-dashboard:1.8.8
 node:20-bullseye-slim
+python:3.11-slim
