@@ -22,17 +22,9 @@ jobs:
       - name: 拉取代码
         uses: actions/checkout@v5
 
-      - name: 准备磁盘空间
-        uses: easimon/maximize-build-space@master
-        with:
-          root-reserve-mb: 2048
-          swap-size-mb: 128
-          remove-dotnet: 'true'
-          remove-haskell: 'true'
-          build-mount-path: '/var/lib/docker/'
-
-      - name: 重启容器服务
-        run: sudo service docker restart
+      - name: 检查磁盘空间
+        run: |
+          df -hT
 
       - name: 拉取阿里云镜像并打包
         id: package
@@ -117,7 +109,10 @@ jobs:
 
             aliyun_image="$ALIYUN_REGISTRY/$ALIYUN_NAME_SPACE/$platform_prefix$name_space_prefix$image_name_tag"
             echo "docker pull $aliyun_image"
-            docker pull "$aliyun_image"
+            if ! docker pull "$aliyun_image"; then
+              echo "::error title=镜像未转存::阿里云仓库中没有 $aliyun_image。请先回到镜像管理页执行一次转存（保存并提交 / 手动转存），等转存任务成功后再导出。"
+              exit 1
+            fi
 
             if [[ "$image" != *"@"* ]]; then
               echo "docker tag $aliyun_image $image"
