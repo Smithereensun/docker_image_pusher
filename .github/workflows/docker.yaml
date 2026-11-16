@@ -6,6 +6,8 @@ on:
     branches: [ main ]
 
 env:
+  # 把镜像列表切成多少个分片并行处理（要与此处 matrix.index 的数量一致）
+  CHUNKS: "5"
   ALIYUN_REGISTRY: "${{ secrets.ALIYUN_REGISTRY }}"
   ALIYUN_NAME_SPACE: "${{ secrets.ALIYUN_NAME_SPACE }}"
   ALIYUN_REGISTRY_USER: "${{ secrets.ALIYUN_REGISTRY_USER }}"
@@ -14,8 +16,12 @@ env:
 jobs:
 
   build:
-    name: Pull
+    name: Push ${{ matrix.index }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        index: [0, 1, 2, 3, 4]
     steps:
     - name: Before pushing images
       run: |
@@ -32,6 +38,8 @@ jobs:
         echo "$ALIYUN_REGISTRY_PASSWORD" | docker login -u "$ALIYUN_REGISTRY_USER" --password-stdin "$ALIYUN_REGISTRY"
 
     - name: Build and push image Aliyun
+      env:
+        CHUNK_INDEX: ${{ matrix.index }}
       run: |
         # 说明：不再使用 easimon/maximize-build-space。
         # 新版 ubuntu-latest（Ubuntu 26.04）是 145G 单盘、没有独立 /mnt，
@@ -39,6 +47,20 @@ jobs:
         # 把根分区占满到只剩 100M，docker pull 立刻 No space left on device，
         # 连 runner 自己的日志都写不下去（表现为任务失败、日志为空）。
         set -uo pipefail
+
+        # 每个 job 只处理自己那一片镜像，5 个 job 并行跑
+        grep -vE '^\s*(#|$)' images.txt > /tmp/all-images.txt || true
+        total=$(wc -l < /tmp/all-images.txt | tr -d ' ')
+        per=$(( (total + CHUNKS - 1) / CHUNKS ))
+        start=$(( CHUNK_INDEX * per + 1 ))
+        end=$(( start + per - 1 ))
+        echo "共有 $total 个镜像，本分片处理第 $start - $end 个"
+        if [ "$total" -eq 0 ] || [ "$start" -gt "$total" ]; then
+          echo "本分片没有需要处理的镜像，跳过"
+          exit 0
+        fi
+        awk -v s="$start" -v e="$end" 'NR>=s && NR<=e' /tmp/all-images.txt > /tmp/chunk-images.txt
+        cat /tmp/chunk-images.txt
 
         declare -A duplicate_images
         declare -A temp_map
@@ -62,7 +84,7 @@ jobs:
             else
                 temp_map[$image_name]=$name_space
             fi
-        done < images.txt
+        done < /tmp/all-images.txt
 
         failed_images=()
         while IFS= read -r line || [ -n "$line" ]; do
@@ -120,7 +142,7 @@ jobs:
             docker rmi $image >/dev/null 2>&1 || true
             docker rmi "$new_image" >/dev/null 2>&1 || true
             df -h /
-        done < images.txt
+        done < /tmp/chunk-images.txt
 
         if (( ${#failed_images[@]} > 0 )); then
             echo "以下镜像转存失败（共 ${#failed_images[@]} 个）："

@@ -2386,7 +2386,7 @@ function renderDownloads(runs, artifacts) {
     })
     .join("");
   elements.downloadsList.innerHTML = `
-    ${latestRun ? `<div class="download-item"><a href="${escapeHtml(latestRun.html_url)}" target="_blank" rel="noreferrer">导出任务 #${escapeHtml(latestRun.run_number)} ${escapeHtml(formatRunStatus(runStatus))}</a><span class="run-meta">${escapeHtml(formatRunEvent(latestRun.event))} · ${escapeHtml(new Date(latestRun.created_at).toLocaleString())}</span></div>` : ""}
+    ${latestRun ? `<div class="download-item"><div class="download-info"><a href="${escapeHtml(latestRun.html_url)}" target="_blank" rel="noreferrer">导出任务 #${escapeHtml(latestRun.run_number)} ${escapeHtml(formatRunStatus(runStatus))}</a><span class="run-meta">${escapeHtml(formatRunEvent(latestRun.event))} · ${escapeHtml(new Date(latestRun.created_at).toLocaleString())}</span>${renderRunFailure(latestRun)}</div></div>` : ""}
     ${artifactItems || '<div class="download-item"><span class="run-meta">镜像包生成中，稍后刷新页面查看下载链接。</span></div>'}
   `;
 }
@@ -2399,9 +2399,16 @@ function renderRuns(runs) {
   elements.runsList.innerHTML = runs
     .map((run) => {
       const status = run.conclusion || run.status || "unknown";
-      return `<div class="run-item"><a href="${escapeHtml(run.html_url)}" target="_blank" rel="noreferrer">#${run.run_number} ${escapeHtml(formatRunStatus(status))}</a><span class="run-meta">${escapeHtml(formatRunEvent(run.event))} · ${escapeHtml(new Date(run.created_at).toLocaleString())}</span></div>`;
+      return `<div class="run-item"><a href="${escapeHtml(run.html_url)}" target="_blank" rel="noreferrer">#${run.run_number} ${escapeHtml(formatRunStatus(status))}</a><span class="run-meta">${escapeHtml(formatRunEvent(run.event))} · ${escapeHtml(new Date(run.created_at).toLocaleString())}</span>${renderRunFailure(run)}</div>`;
     })
     .join("");
+}
+
+function renderRunFailure(run) {
+  const failure = run && run.failure;
+  if (!failure || !failure.message) return "";
+  const step = failure.step ? `<span class="run-failure-step">${escapeHtml(failure.step)}</span>` : "";
+  return `<div class="run-failure">${step}<span class="run-failure-text">${escapeHtml(failure.message)}</span></div>`;
 }
 
 async function api(path, options = {}) {

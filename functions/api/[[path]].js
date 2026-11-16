@@ -171,17 +171,7 @@ async function listRuns(env) {
     throw statusError(data.message || "读取运行记录失败", result.status);
   }
 
-  return json({
-    runs: (data.workflow_runs || []).map((run) => ({
-      id: run.id,
-      run_number: run.run_number,
-      status: run.status,
-      conclusion: run.conclusion,
-      event: run.event,
-      created_at: run.created_at,
-      html_url: run.html_url,
-    })),
-  });
+  return json({ runs: await mapRuns(env, data.workflow_runs || []) });
 }
 
 async function listExportRuns(env) {
@@ -192,17 +182,7 @@ async function listExportRuns(env) {
     throw statusError(data.message || "读取镜像包导出记录失败", result.status);
   }
 
-  return json({
-    runs: (data.workflow_runs || []).map((run) => ({
-      id: run.id,
-      run_number: run.run_number,
-      status: run.status,
-      conclusion: run.conclusion,
-      event: run.event,
-      created_at: run.created_at,
-      html_url: run.html_url,
-    })),
-  });
+  return json({ runs: await mapRuns(env, data.workflow_runs || []) });
 }
 
 async function listExportArtifacts(env) {
@@ -518,6 +498,78 @@ function workflowFile(env) {
 
 function exportWorkflowFile(env) {
   return env.EXPORT_WORKFLOW_FILE || "export-images.yaml";
+}
+
+async function mapRuns(env, runs) {
+  const withFailures = await withRunFailures(env, runs);
+  return withFailures.map((run) => ({
+    id: run.id,
+    run_number: run.run_number,
+    status: run.status,
+    conclusion: run.conclusion,
+    event: run.event,
+    created_at: run.created_at,
+    html_url: run.html_url,
+    failure: run.failure || null,
+  }));
+}
+
+// 只给最近两个失败的任务补失败原因，避免每次刷新都打一堆 GitHub 接口
+async function withRunFailures(env, runs) {
+  const failed = runs.filter((run) => run.conclusion === "failure").slice(0, 2);
+  if (!failed.length) return runs;
+
+  const details = await Promise.all(failed.map((run) => readRunFailure(env, run.id).catch(() => null)));
+  const byId = new Map(failed.map((run, index) => [run.id, details[index]]));
+  return runs.map((run) => ({ ...run, failure: byId.get(run.id) || null }));
+}
+
+async function readRunFailure(env, runId) {
+  const jobsResponse = await github(env, `/repos/${repoPath(env)}/actions/runs/${runId}/jobs?per_page=100`);
+  if (!jobsResponse.ok) return null;
+
+  const { jobs = [] } = await jobsResponse.json();
+  const failedJobs = jobs.filter((job) => job.conclusion === "failure");
+  if (!failedJobs.length) return null;
+
+  let step = "";
+  let message = "";
+  for (const job of failedJobs) {
+    const failedStep = (job.steps || []).find((item) => item.conclusion === "failure");
+    if (!step && failedStep) step = `${job.name} · ${failedStep.name}`;
+    if (!message) message = await readFailureAnnotation(env, job.id).catch(() => "");
+    if (step && message) break;
+  }
+
+  if (!message) {
+    message = step ? `步骤「${step}」执行失败，请打开 GitHub 日志查看` : "任务执行失败";
+  }
+
+  return { step, message: cleanFailureMessage(message) };
+}
+
+async function readFailureAnnotation(env, jobId) {
+  const response = await github(env, `/repos/${repoPath(env)}/check-runs/${jobId}/annotations`);
+  if (!response.ok) return "";
+
+  const annotations = await response.json();
+  if (!Array.isArray(annotations)) return "";
+
+  const failures = annotations.filter((item) => item.annotation_level === "failure" && item.message);
+  const preferred = failures.find((item) => !GENERIC_ANNOTATION.test(item.message.trim()));
+  return preferred ? preferred.message : "";
+}
+
+const GENERIC_ANNOTATION = /^process (completed|exited) with exit code/i;
+
+function cleanFailureMessage(raw) {
+  const firstLine =
+    String(raw || "")
+      .replace(/\u001b\[[0-9;]*m/g, "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find(Boolean) || "";
+  return firstLine.length > 240 ? `${firstLine.slice(0, 240)}…` : firstLine;
 }
 
 function artifactFilename(name) {
